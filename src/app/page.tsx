@@ -1,9 +1,8 @@
-
 "use client"
 
 import { useState, useEffect } from "react";
 import { db } from "@/firebase/config";
-import { collection, onSnapshot, query, where, limit, getDocs } from "firebase/firestore";
+import { collection, onSnapshot, query, where, limit, getDocs, orderBy } from "firebase/firestore";
 import { 
   Users, 
   CalendarCheck, 
@@ -17,7 +16,10 @@ import {
   Stethoscope,
   Cake,
   Gift,
-  ChevronRight
+  ChevronRight,
+  AlertTriangle,
+  CheckCircle2,
+  BarChart3
 } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
@@ -37,11 +39,11 @@ import { cn } from "@/lib/utils";
 import { isWithinInterval, addDays, parseISO, format, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-const healthTrends = [
-  { month: 'Jan', inflammatory: 6.2, sleep: 65 },
-  { month: 'Fev', inflammatory: 5.8, sleep: 68 },
-  { month: 'Mar', inflammatory: 4.5, sleep: 72 },
-  { month: 'Abr', inflammatory: 4.1, sleep: 75 },
+const clinicalTrends = [
+  { month: 'Jan', pcr: 6.2, adesao: 65 },
+  { month: 'Fev', pcr: 5.8, adesao: 68 },
+  { month: 'Mar', pcr: 4.5, adesao: 82 },
+  { month: 'Abr', pcr: 3.8, adesao: 88 },
 ];
 
 interface UpcomingBirthday {
@@ -52,6 +54,13 @@ interface UpcomingBirthday {
   formattedDay: string;
 }
 
+interface ClinicalAlert {
+  id: string;
+  patientName: string;
+  type: 'critical' | 'warning' | 'info';
+  message: string;
+}
+
 export default function Dashboard() {
   const [patientCount, setPatientCount] = useState(0);
   const [appointments, setAppointments] = useState<any[]>([]);
@@ -59,6 +68,11 @@ export default function Dashboard() {
   const [dbStatus, setDbStatus] = useState<'online' | 'offline' | 'checking'>('checking');
   const [currentDate, setCurrentDate] = useState<string>("");
   const [upcomingBirthdays, setUpcomingBirthdays] = useState<UpcomingBirthday[]>([]);
+  const [clinicalAlerts, setClinicalAlerts] = useState<ClinicalAlert[]>([
+    { id: '1', patientName: 'Ana Silva Santos', type: 'critical', message: 'PCR Elevado (8.2 mg/dL) detectado em exame recente.' },
+    { id: '2', patientName: 'Carlos Eduardo Souza', type: 'warning', message: 'Adesão ao Protocolo de Suplementação abaixo de 60%.' },
+    { id: '3', patientName: 'Mariana Oliveira', type: 'info', message: 'Evolução clínica positiva: Redução de 30% em marcadores inflamatórios.' }
+  ]);
 
   useEffect(() => {
     const now = new Date();
@@ -74,13 +88,11 @@ export default function Dashboard() {
         await getDocs(q);
         setDbStatus('online');
       } catch (err) {
-        console.error("Erro de conexão Firebase:", err);
         setDbStatus('offline');
       }
     };
     checkConn();
 
-    // Monitoramento de Pacientes e Aniversariantes
     const unsubscribePatients = onSnapshot(collection(db, "patients"), (snapshot) => {
       setPatientCount(snapshot.size);
       
@@ -91,10 +103,8 @@ export default function Dashboard() {
       const birthdays = patientsData.filter(p => {
         if (!p.birthDate) return false;
         const bday = parseISO(p.birthDate);
-        // Criar data de aniversário no ano atual para comparação
         const bdayThisYear = new Date(today.getFullYear(), bday.getMonth(), bday.getDate());
         
-        // Se o aniversário já passou este ano e estamos perto do final do ano, verificar ano seguinte
         if (bdayThisYear < today && !isSameDay(bdayThisYear, today)) {
           const bdayNextYear = new Date(today.getFullYear() + 1, bday.getMonth(), bday.getDate());
           return isWithinInterval(bdayNextYear, { start: today, end: nextWeek });
@@ -149,7 +159,7 @@ export default function Dashboard() {
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 mb-1">
-            <h1 className="text-3xl font-bold text-primary font-headline">Bem-vindo, Dr. Manoel</h1>
+            <h1 className="text-3xl font-bold text-primary font-headline">Painel Dr. Manoel</h1>
             <Badge 
               variant="outline" 
               className={cn(
@@ -159,11 +169,11 @@ export default function Dashboard() {
               )}
             >
               {dbStatus === 'online' ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-              {dbStatus === 'online' ? "Sistema Online" : dbStatus === 'offline' ? "Erro de Conexão" : "Verificando..."}
+              {dbStatus === 'online' ? "Sistema Operacional" : dbStatus === 'offline' ? "Falha de Rede" : "Verificando..."}
             </Badge>
           </div>
           <p className="text-slate-500">
-            Visão geral da clínica para hoje, {currentDate || "carregando data..."}.
+            Inteligência clínica e gestão para hoje, {currentDate || "carregando..."}.
           </p>
         </div>
         <div className="flex gap-3">
@@ -188,12 +198,12 @@ export default function Dashboard() {
           trend={{ value: "12%", positive: true }} 
         />
         <StatCard 
-          title="Agendamentos Hoje" 
+          title="Agendamentos" 
           value={appointments.length} 
           icon={CalendarCheck} 
         />
         <StatCard 
-          title="Receita Mensal" 
+          title="Faturamento Mês" 
           value={revenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} 
           icon={TrendingUp} 
           trend={{ value: "8%", positive: true }} 
@@ -202,9 +212,9 @@ export default function Dashboard() {
           <CardContent className="p-6">
             <div className="flex flex-col items-center text-center gap-2">
               <ShieldCheck className="h-10 w-10 text-white mb-2" />
-              <p className="text-[10px] uppercase font-bold tracking-widest text-white/70">Conformidade LGPD</p>
-              <h3 className="text-lg font-bold leading-tight">Privacidade Ativa</h3>
-              <Badge variant="secondary" className="mt-1 bg-white/20 text-white border-none hover:bg-white/30">Criptografado</Badge>
+              <p className="text-[10px] uppercase font-bold tracking-widest text-white/70">Conformidade Ativa</p>
+              <h3 className="text-lg font-bold leading-tight">Privacidade Total</h3>
+              <Badge variant="secondary" className="mt-1 bg-white/20 text-white border-none">LGPD / ANVISA</Badge>
             </div>
           </CardContent>
         </Card>
@@ -213,21 +223,21 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <Card className="lg:col-span-2 border-none shadow-md">
           <CardHeader>
-            <CardTitle className="text-primary font-headline">Evolução Clínica Média</CardTitle>
-            <CardDescription>Comparativo entre marcadores inflamatórios e qualidade do sono.</CardDescription>
+            <CardTitle className="text-primary font-headline">Evolução Clínica Consolidada</CardTitle>
+            <CardDescription>Monitoramento de Marcadores Inflamatórios (PCR) vs Adesão Terapêutica.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[350px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={healthTrends}>
+                <AreaChart data={clinicalTrends}>
                   <defs>
-                    <linearGradient id="colorInflammatory" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="colorPCR" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#065F46" stopOpacity={0.1}/>
                       <stop offset="95%" stopColor="#065F46" stopOpacity={0}/>
                     </linearGradient>
-                    <linearGradient id="colorSleep" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#64748B" stopOpacity={0.1}/>
-                      <stop offset="95%" stopColor="#64748B" stopOpacity={0}/>
+                    <linearGradient id="colorAdesao" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#D4AF37" stopOpacity={0.1}/>
+                      <stop offset="95%" stopColor="#D4AF37" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
@@ -238,21 +248,21 @@ export default function Dashboard() {
                   />
                   <Area 
                     type="monotone" 
-                    dataKey="inflammatory" 
+                    dataKey="pcr" 
                     stroke="#065F46" 
                     strokeWidth={3}
                     fillOpacity={1} 
-                    fill="url(#colorInflammatory)" 
-                    name="PCR (Inflamatório)"
+                    fill="url(#colorPCR)" 
+                    name="Média PCR (mg/dL)"
                   />
                   <Area 
                     type="monotone" 
-                    dataKey="sleep" 
-                    stroke="#64748B" 
+                    dataKey="adesao" 
+                    stroke="#D4AF37" 
                     strokeWidth={3}
                     fillOpacity={1} 
-                    fill="url(#colorSleep)" 
-                    name="Índice de Sono"
+                    fill="url(#colorAdesao)" 
+                    name="Adesão ao Protocolo (%)"
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -264,32 +274,37 @@ export default function Dashboard() {
           <Card className="border-none shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <div>
-                <CardTitle className="text-primary font-headline">Agenda do Dia</CardTitle>
-                <CardDescription>Pacientes confirmados.</CardDescription>
+                <CardTitle className="text-primary font-headline">Alertas de Inteligência</CardTitle>
+                <CardDescription>Análise baseada em exames e protocolos.</CardDescription>
               </div>
-              <Link href="/calendar">
-                <Button variant="ghost" size="sm" className="text-primary hover:bg-primary/5">Ver Tudo</Button>
-              </Link>
+              <BarChart3 className="h-5 w-5 text-accent" />
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {appointments.length === 0 ? (
-                  <p className="text-sm text-center text-slate-400 py-6 italic">Nenhum agendamento para hoje.</p>
-                ) : (
-                  appointments.map((appointment) => (
-                    <div key={appointment.id} className="flex items-start gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer group">
-                      <div className="bg-primary/5 p-3 rounded-lg text-primary font-bold text-center min-w-[60px] group-hover:bg-primary group-hover:text-white transition-colors">
-                        <span className="text-[10px] uppercase block font-medium opacity-70">Hora</span>
-                        {appointment.time}
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-bold text-sm text-slate-800">{appointment.patientName}</h4>
-                        <p className="text-[11px] text-slate-500">{appointment.type}</p>
-                      </div>
+                {clinicalAlerts.map((alert) => (
+                  <div key={alert.id} className={cn(
+                    "flex items-start gap-3 p-3 rounded-xl border transition-all",
+                    alert.type === 'critical' ? "bg-red-50 border-red-100" : 
+                    alert.type === 'warning' ? "bg-amber-50 border-amber-100" : "bg-emerald-50 border-emerald-100"
+                  )}>
+                    <div className={cn(
+                      "p-1.5 rounded-lg mt-0.5",
+                      alert.type === 'critical' ? "text-red-600 bg-red-100" : 
+                      alert.type === 'warning' ? "text-amber-600 bg-amber-100" : "text-emerald-600 bg-emerald-100"
+                    )}>
+                      {alert.type === 'critical' ? <AlertTriangle className="h-4 w-4" /> : 
+                       alert.type === 'warning' ? <AlertTriangle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
                     </div>
-                  ))
-                )}
+                    <div>
+                      <h4 className="font-bold text-xs text-slate-800">{alert.patientName}</h4>
+                      <p className="text-[10px] text-slate-600 mt-0.5 leading-relaxed">{alert.message}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
+              <Button variant="ghost" className="w-full mt-4 text-xs font-bold text-accent hover:bg-accent/5">
+                Ver Central de Inteligência
+              </Button>
             </CardContent>
           </Card>
 
@@ -357,12 +372,12 @@ export default function Dashboard() {
         <Link href="/planner" className="contents">
           <Card className="group cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all border-none bg-white">
             <CardContent className="p-6 flex items-center gap-4">
-              <div className="bg-secondary/10 p-4 rounded-full group-hover:bg-secondary transition-all">
-                <FileText className="h-6 w-6 text-secondary group-hover:text-white" />
+              <div className="bg-accent/10 p-4 rounded-full group-hover:bg-accent transition-all">
+                <FileText className="h-6 w-6 text-accent group-hover:text-white" />
               </div>
               <div>
-                <h3 className="font-bold text-primary">Prescrição Rápida</h3>
-                <p className="text-xs text-slate-500">Documento ABNT/ANVISA</p>
+                <h3 className="font-bold text-primary">Inteligência de Planejamento</h3>
+                <p className="text-xs text-slate-500">Racional clínico IA / ANVISA</p>
               </div>
             </CardContent>
           </Card>
@@ -374,8 +389,8 @@ export default function Dashboard() {
                 <Users className="h-6 w-6 text-emerald-700 group-hover:text-white" />
               </div>
               <div>
-                <h3 className="font-bold text-primary">Gestão de Pacientes</h3>
-                <p className="text-xs text-slate-500">Base LGPD Consolidada</p>
+                <h3 className="font-bold text-primary">CRM de Pacientes</h3>
+                <p className="text-xs text-slate-500">Gestão de Base Rastreável</p>
               </div>
             </CardContent>
           </Card>
