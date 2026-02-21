@@ -26,7 +26,7 @@ export function StatCard({ title, value, icon: Icon, trend, className }: StatCar
                 "text-xs font-semibold mt-1",
                 trend.positive ? "text-green-600" : "text-red-600"
               )}>
-                {trend.positive ? "+" : "-"}{trend.value} <span className="text-muted-foreground font-normal">since last month</span>
+                {trend.positive ? "+" : "-"}{trend.value} <span className="text-muted-foreground font-normal">desde o mês passado</span>
               </p>
             )}
           </div>

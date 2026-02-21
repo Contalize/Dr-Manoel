@@ -31,11 +31,11 @@ export default function AnamnesisPage() {
     <div className="max-w-4xl mx-auto space-y-8">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-primary font-headline">Integrative Anamnesis</h1>
-          <p className="text-muted-foreground">SOAP Methodology-based clinical assessment.</p>
+          <h1 className="text-3xl font-bold text-primary font-headline">Anamnese Integrativa</h1>
+          <p className="text-muted-foreground">Avaliação clínica baseada na metodologia SOAP.</p>
         </div>
         <div className="text-right">
-          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">Session Progress</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">Progresso da Sessão</p>
           <div className="flex items-center gap-3">
             <Progress value={progress} className="w-32 h-2" />
             <span className="text-sm font-bold text-primary">{Math.round(progress)}%</span>
@@ -48,16 +48,16 @@ export default function AnamnesisPage() {
           <div className="bg-secondary/50 p-2 border-b border-border">
             <TabsList className="grid grid-cols-4 bg-transparent w-full">
               <TabsTrigger value="step-1" onClick={() => setStep(1)} className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-lg font-bold">
-                1. Subjective
+                1. Subjetivo
               </TabsTrigger>
               <TabsTrigger value="step-2" onClick={() => setStep(2)} className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-lg font-bold">
-                2. Objective
+                2. Objetivo
               </TabsTrigger>
               <TabsTrigger value="step-3" onClick={() => setStep(3)} className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-lg font-bold">
-                3. Markers
+                3. Marcadores
               </TabsTrigger>
               <TabsTrigger value="step-4" onClick={() => setStep(4)} className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-lg font-bold">
-                4. Assessment
+                4. Avaliação
               </TabsTrigger>
             </TabsList>
           </div>
@@ -69,22 +69,22 @@ export default function AnamnesisPage() {
                   <Stethoscope className="h-6 w-6 text-primary" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-primary">Subjective (Patient Voice)</h3>
-                  <p className="text-sm text-muted-foreground">Chief complaint, symptoms, and medical history.</p>
+                  <h3 className="text-lg font-bold text-primary">Subjetivo (Voz do Paciente)</h3>
+                  <p className="text-sm text-muted-foreground">Queixa principal, sintomas e histórico médico.</p>
                 </div>
               </div>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="font-bold text-primary">Chief Complaint</Label>
-                  <Textarea placeholder="Describe the patient's primary reason for the visit..." className="bg-secondary/30 border-none min-h-[100px]" />
+                  <Label className="font-bold text-primary">Queixa Principal</Label>
+                  <Textarea placeholder="Descreva o motivo principal da consulta..." className="bg-secondary/30 border-none min-h-[100px]" />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="font-bold text-primary">Pain Level (0-10)</Label>
+                    <Label className="font-bold text-primary">Nível de Dor (0-10)</Label>
                     <Slider defaultValue={[0]} max={10} step={1} className="py-4" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="font-bold text-primary">Stress Level</Label>
+                    <Label className="font-bold text-primary">Nível de Estresse</Label>
                     <Slider defaultValue={[5]} max={10} step={1} className="py-4" />
                   </div>
                 </div>
@@ -97,27 +97,27 @@ export default function AnamnesisPage() {
                   <Activity className="h-6 w-6 text-accent" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-primary">Objective (Clinical Findings)</h3>
-                  <p className="text-sm text-muted-foreground">Physical exam and laboratory results.</p>
+                  <h3 className="text-lg font-bold text-primary">Objetivo (Achados Clínicos)</h3>
+                  <p className="text-sm text-muted-foreground">Exame físico e resultados laboratoriais.</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
-                  <Label>Blood Pressure</Label>
+                  <Label>Pressão Arterial</Label>
                   <Input placeholder="120/80 mmHg" className="bg-secondary/30 border-none" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Heart Rate</Label>
+                  <Label>Frequência Cardíaca</Label>
                   <Input placeholder="72 bpm" className="bg-secondary/30 border-none" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Weight (kg)</Label>
+                  <Label>Peso (kg)</Label>
                   <Input placeholder="75.5" className="bg-secondary/30 border-none" />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label className="font-bold text-primary">Physical Exam Notes</Label>
-                <Textarea placeholder="Note any visible signs, skin condition, abdominal palpation..." className="bg-secondary/30 border-none min-h-[100px]" />
+                <Label className="font-bold text-primary">Notas do Exame Físico</Label>
+                <Textarea placeholder="Observe sinais visíveis, condição da pele, palpação abdominal..." className="bg-secondary/30 border-none min-h-[100px]" />
               </div>
             </TabsContent>
 
@@ -127,36 +127,36 @@ export default function AnamnesisPage() {
                   <Moon className="h-6 w-6" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-primary">Integrative Markers</h3>
-                  <p className="text-sm text-muted-foreground">Gut health, sleep quality, and lifestyle markers.</p>
+                  <h3 className="text-lg font-bold text-primary">Marcadores Integrativos</h3>
+                  <p className="text-sm text-muted-foreground">Saúde intestinal, qualidade do sono e estilo de vida.</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-4 p-4 rounded-xl bg-secondary/20">
                   <div className="flex items-center gap-2 mb-2">
                     <Apple className="h-4 w-4 text-green-600" />
-                    <h4 className="font-bold text-sm uppercase tracking-wider text-primary">Gut Health Status</h4>
+                    <h4 className="font-bold text-sm uppercase tracking-wider text-primary">Saúde Intestinal</h4>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs">Bowel Frequency</Label>
-                    <Input placeholder="e.g. Daily, 2x week" className="bg-white border-none text-sm" />
+                    <Label className="text-xs">Frequência de Evacuação</Label>
+                    <Input placeholder="ex: Diária, 2x por semana" className="bg-white border-none text-sm" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs">Bristol Stool Scale</Label>
-                    <Input placeholder="Type 1-7" className="bg-white border-none text-sm" />
+                    <Label className="text-xs">Escala de Bristol</Label>
+                    <Input placeholder="Tipo 1-7" className="bg-white border-none text-sm" />
                   </div>
                 </div>
                 <div className="space-y-4 p-4 rounded-xl bg-secondary/20">
                   <div className="flex items-center gap-2 mb-2">
                     <Moon className="h-4 w-4 text-blue-600" />
-                    <h4 className="font-bold text-sm uppercase tracking-wider text-primary">Circadian Rhythm</h4>
+                    <h4 className="font-bold text-sm uppercase tracking-wider text-primary">Ritmo Circadiano</h4>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs">Sleep Duration (hrs)</Label>
+                    <Label className="text-xs">Duração do Sono (hrs)</Label>
                     <Input placeholder="7.5" className="bg-white border-none text-sm" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs">Morning Energy Level (1-10)</Label>
+                    <Label className="text-xs">Energia Matinal (1-10)</Label>
                     <Input placeholder="8" className="bg-white border-none text-sm" />
                   </div>
                 </div>
@@ -169,18 +169,18 @@ export default function AnamnesisPage() {
                   <CheckCircle2 className="h-6 w-6" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-primary">Assessment & Plan</h3>
-                  <p className="text-sm text-muted-foreground">Clinical reasoning and therapeutic strategy.</p>
+                  <h3 className="text-lg font-bold text-primary">Avaliação e Plano</h3>
+                  <p className="text-sm text-muted-foreground">Raciocínio clínico e estratégia terapêutica.</p>
                 </div>
               </div>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="font-bold text-primary">Integrative Diagnosis / Assessment</Label>
-                  <Textarea placeholder="Summarize your clinical reasoning based on the data above..." className="bg-secondary/30 border-none min-h-[120px]" />
+                  <Label className="font-bold text-primary">Diagnóstico / Avaliação Integrativa</Label>
+                  <Textarea placeholder="Resuma seu raciocínio clínico com base nos dados..." className="bg-secondary/30 border-none min-h-[120px]" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="font-bold text-primary">Proposed Strategy (The Plan)</Label>
-                  <Textarea placeholder="What are the next steps? Lifestyle changes, supplements..." className="bg-secondary/30 border-none min-h-[120px]" />
+                  <Label className="font-bold text-primary">Estratégia Proposta (O Plano)</Label>
+                  <Textarea placeholder="Próximos passos: mudanças de estilo de vida, suplementos..." className="bg-secondary/30 border-none min-h-[120px]" />
                 </div>
               </div>
             </TabsContent>
@@ -193,7 +193,7 @@ export default function AnamnesisPage() {
               disabled={step === 1}
               className="border-primary/20 text-primary"
             >
-              <ArrowLeft className="h-4 w-4 mr-2" /> Previous Step
+              <ArrowLeft className="h-4 w-4 mr-2" /> Passo Anterior
             </Button>
             
             {step < totalSteps ? (
@@ -201,11 +201,11 @@ export default function AnamnesisPage() {
                 onClick={() => setStep(prev => Math.min(totalSteps, prev + 1))}
                 className="bg-primary text-white"
               >
-                Next Step <ArrowRight className="h-4 w-4 ml-2" />
+                Próximo Passo <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             ) : (
               <Button className="bg-accent text-white hover:bg-accent/90 px-8">
-                <Save className="h-4 w-4 mr-2" /> Finalize Anamnesis
+                <Save className="h-4 w-4 mr-2" /> Finalizar Anamnese
               </Button>
             )}
           </CardFooter>

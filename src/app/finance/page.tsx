@@ -45,9 +45,9 @@ interface Transaction {
 
 const mockCashFlow = [
   { name: 'Jan', value: 18000 },
-  { name: 'Feb', value: 21000 },
+  { name: 'Fev', value: 21000 },
   { name: 'Mar', value: 24500 },
-  { name: 'Apr', value: 19500 },
+  { name: 'Abr', value: 19500 },
 ];
 
 export default function FinancePage() {
@@ -67,7 +67,6 @@ export default function FinancePage() {
       })) as Transaction[];
       setTransactions(txs);
 
-      // Simple stat calculation from visible transactions for demo
       const total = txs.reduce((acc, tx) => acc + (tx.status === 'Paid' ? tx.amount : 0), 0);
       const pending = txs.reduce((acc, tx) => acc + (tx.status === 'Pending' ? tx.amount : 0), 0);
       setStats({
@@ -83,33 +82,33 @@ export default function FinancePage() {
     <div className="space-y-8">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-primary font-headline">Financial Control</h1>
-          <p className="text-muted-foreground">Track revenue, pending payments, and clinic cash flow.</p>
+          <h1 className="text-3xl font-bold text-primary font-headline">Controle Financeiro</h1>
+          <p className="text-muted-foreground">Monitore receitas, pagamentos pendentes e o fluxo de caixa da clínica.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" className="border-primary/20 text-primary">
-            <Download className="h-4 w-4 mr-2" /> Export Report
+            <Download className="h-4 w-4 mr-2" /> Exportar Relatório
           </Button>
           <Button className="bg-accent text-white hover:bg-accent/90">
-            <PlusCircle className="h-4 w-4 mr-2" /> Record Expense
+            <PlusCircle className="h-4 w-4 mr-2" /> Registrar Despesa
           </Button>
         </div>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatCard 
-          title="Total Revenue" 
+          title="Receita Total" 
           value={`R$ ${stats.monthlyRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} 
           icon={CircleDollarSign} 
           trend={{ value: "15%", positive: true }} 
         />
         <StatCard 
-          title="Pending Payments" 
+          title="Pagamentos Pendentes" 
           value={`R$ ${stats.pendingPayments.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} 
           icon={CreditCard} 
         />
         <StatCard 
-          title="Average Ticket" 
+          title="Ticket Médio" 
           value={`R$ ${stats.avgTicket.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} 
           icon={ArrowUpRight} 
         />
@@ -118,8 +117,8 @@ export default function FinancePage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <Card className="border-none shadow-md">
           <CardHeader>
-            <CardTitle className="text-primary font-headline">Cash Flow Forecast (BRL)</CardTitle>
-            <CardDescription>Monthly revenue trends for the current year.</CardDescription>
+            <CardTitle className="text-primary font-headline">Previsão de Fluxo de Caixa (BRL)</CardTitle>
+            <CardDescription>Tendências de receita mensal para o ano atual.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[300px] w-full">
@@ -145,24 +144,24 @@ export default function FinancePage() {
 
         <Card className="border-none shadow-md">
           <CardHeader>
-            <CardTitle className="text-primary font-headline">Recent Transactions</CardTitle>
-            <CardDescription>Latest consultation payments and invoices.</CardDescription>
+            <CardTitle className="text-primary font-headline">Transações Recentes</CardTitle>
+            <CardDescription>Últimos pagamentos de consultas e faturas.</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="font-bold">Patient</TableHead>
-                  <TableHead className="font-bold">Amount</TableHead>
+                  <TableHead className="font-bold">Paciente</TableHead>
+                  <TableHead className="font-bold">Valor</TableHead>
                   <TableHead className="font-bold">Status</TableHead>
-                  <TableHead className="text-right font-bold">Method</TableHead>
+                  <TableHead className="text-right font-bold">Método</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {transactions.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center py-10 text-muted-foreground">
-                      No recent transactions recorded.
+                      Nenhuma transação recente registrada.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -180,7 +179,7 @@ export default function FinancePage() {
                           "text-[10px] uppercase font-bold",
                           tx.status === 'Paid' ? "bg-green-100 text-green-700 border-none" : "bg-amber-100 text-amber-700 border-none"
                         )}>
-                          {tx.status}
+                          {tx.status === 'Paid' ? 'Pago' : 'Pendente'}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right text-xs font-semibold text-muted-foreground uppercase">{tx.method}</TableCell>
@@ -189,7 +188,7 @@ export default function FinancePage() {
                 )}
               </TableBody>
             </Table>
-            <Button variant="ghost" className="w-full mt-4 text-accent hover:bg-accent/5">View Full History</Button>
+            <Button variant="ghost" className="w-full mt-4 text-accent hover:bg-accent/5">Ver Histórico Completo</Button>
           </CardContent>
         </Card>
       </div>
