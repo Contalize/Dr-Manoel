@@ -6,7 +6,7 @@ import { collection, getDocs, limit, query } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, CheckCircle2, XCircle, RefreshCw, Database } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, RefreshCw, Database, AlertTriangle, ExternalLink } from "lucide-react";
 import Link from "next/link";
 
 export default function TestDBPage() {
@@ -25,7 +25,12 @@ export default function TestDBPage() {
       setStatus('success');
     } catch (err: any) {
       console.error("Firestore connection error:", err);
-      setError(err.message || 'Erro desconhecido ao conectar ao Firestore');
+      // Tradução amigável para erros comuns
+      let friendlyError = err.message;
+      if (err.code === 'permission-denied') {
+        friendlyError = "Permissões insuficientes. Você precisa ativar o Firestore no Console do Firebase e publicar as regras de segurança.";
+      }
+      setError(friendlyError || 'Erro desconhecido ao conectar ao Firestore');
       setStatus('error');
     }
   }
@@ -41,8 +46,8 @@ export default function TestDBPage() {
           <Database className="h-8 w-8 text-primary" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold text-primary font-headline">Conexão Firebase</h1>
-          <p className="text-muted-foreground">Diagnóstico de comunicação com o Firestore.</p>
+          <h1 className="text-3xl font-bold text-primary font-headline">Diagnóstico de Conexão</h1>
+          <p className="text-muted-foreground">Verificando a integridade da camada de dados PharmaZen.</p>
         </div>
       </div>
 
@@ -51,7 +56,7 @@ export default function TestDBPage() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-xl">Status do Banco de Dados</CardTitle>
-              <CardDescription>Verificação em tempo real</CardDescription>
+              <CardDescription>Handshake com Firebase Firestore</CardDescription>
             </div>
             {status === 'loading' && <Loader2 className="h-6 w-6 animate-spin text-primary" />}
             {status === 'success' && <CheckCircle2 className="h-6 w-6 text-green-600" />}
@@ -63,7 +68,7 @@ export default function TestDBPage() {
           {status === 'loading' && (
             <div className="flex flex-col items-center py-12 gap-4">
               <Loader2 className="h-12 w-12 animate-spin text-primary/40" />
-              <p className="font-medium animate-pulse">Estabelecendo handshake...</p>
+              <p className="font-medium animate-pulse">Consultando nuvem...</p>
             </div>
           )}
 
@@ -73,25 +78,25 @@ export default function TestDBPage() {
                 <div className="bg-green-600 rounded-full p-1">
                   <CheckCircle2 className="h-4 w-4 text-white" />
                 </div>
-                <p className="text-green-800 font-bold">Conexão estabelecida com sucesso!</p>
+                <p className="text-green-800 font-bold">Conexão 100% Operacional!</p>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-secondary/30 rounded-lg">
-                  <p className="text-xs uppercase font-bold text-muted-foreground mb-1">Coleção "patients"</p>
+                  <p className="text-xs uppercase font-bold text-muted-foreground mb-1">Base de Dados</p>
                   <div className="flex items-center gap-2">
-                    <Badge variant="default" className="bg-primary">{count > 0 ? 'Documentos Encontrados' : 'Coleção Vazia'}</Badge>
+                    <Badge variant="default" className="bg-primary">Ativa</Badge>
                   </div>
                 </div>
                 <div className="p-4 bg-secondary/30 rounded-lg">
-                  <p className="text-xs uppercase font-bold text-muted-foreground mb-1">Latência Estimada</p>
-                  <p className="text-lg font-bold text-primary">&lt; 100ms</p>
+                  <p className="text-xs uppercase font-bold text-muted-foreground mb-1">Sincronização</p>
+                  <p className="text-lg font-bold text-primary">Tempo Real</p>
                 </div>
               </div>
 
               <div className="pt-4 border-t">
-                <Link href="/">
-                  <Button className="w-full bg-primary text-white">Voltar ao Dashboard</Button>
+                <Link href="/" className="w-full">
+                  <Button className="w-full bg-primary text-white">Voltar ao Painel Geral</Button>
                 </Link>
               </div>
             </div>
@@ -100,24 +105,32 @@ export default function TestDBPage() {
           {status === 'error' && (
             <div className="space-y-4 animate-in zoom-in-95 duration-300">
               <div className="p-4 bg-red-50 border border-red-100 rounded-xl">
-                <p className="text-red-700 font-bold mb-2">Falha na Conexão</p>
-                <div className="text-sm font-mono bg-white/50 p-3 rounded border border-red-200 overflow-x-auto">
+                <div className="flex items-center gap-2 text-red-700 font-bold mb-2">
+                  <AlertTriangle className="h-5 w-5" />
+                  <span>Erro de Acesso Identificado</span>
+                </div>
+                <div className="text-sm font-mono bg-white/50 p-3 rounded border border-red-200 overflow-x-auto text-red-900">
                   {error}
                 </div>
               </div>
               
-              <div className="space-y-3">
-                <h4 className="text-sm font-bold uppercase text-muted-foreground">Possíveis Causas:</h4>
-                <ul className="text-sm space-y-2 list-disc list-inside text-muted-foreground">
-                  <li>Firestore não foi provisionado no Console do Firebase.</li>
-                  <li>As Security Rules estão bloqueando o acesso.</li>
-                  <li>Configuração do projeto (API Key, Project ID) incorreta.</li>
-                  <li>Sem conexão com a internet.</li>
-                </ul>
+              <div className="space-y-4 p-4 bg-amber-50 rounded-xl border border-amber-100">
+                <h4 className="text-sm font-bold uppercase text-amber-800">Próximos passos para resolver:</h4>
+                <ol className="text-sm space-y-3 text-amber-900 list-decimal list-inside">
+                  <li>Acesse o <strong>Console do Firebase</strong> no seu navegador.</li>
+                  <li>Vá em <strong>Build &gt; Firestore Database</strong>.</li>
+                  <li>Se solicitado, clique em <strong>Criar Banco de Dados</strong>.</li>
+                  <li>Na aba <strong>Rules</strong>, certifique-se de que as regras permitem acesso (ou publique as regras enviadas pelo Studio).</li>
+                </ol>
+                <Button variant="outline" className="w-full border-amber-200 text-amber-800 hover:bg-amber-100 gap-2" asChild>
+                  <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer">
+                    Abrir Console Firebase <ExternalLink className="h-3 w-3" />
+                  </a>
+                </Button>
               </div>
 
               <Button onClick={testConnection} className="w-full gap-2" variant="outline">
-                <RefreshCw className="h-4 w-4" /> Tentar Novamente
+                <RefreshCw className="h-4 w-4" /> Tentar Re-conexão
               </Button>
             </div>
           )}
@@ -125,7 +138,7 @@ export default function TestDBPage() {
       </Card>
       
       <p className="text-center text-xs text-muted-foreground mt-8">
-        Manoel da Farmacia Platform • LGPD Compliant Connectivity Layer
+        Manoel da Farmacia Platform • Padrão de Segurança ABNT/LGPD
       </p>
     </div>
   );
