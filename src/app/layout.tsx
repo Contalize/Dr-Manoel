@@ -1,3 +1,4 @@
+
 import type { Metadata } from 'next';
 import './globals.css';
 import { DashboardSidebar } from '@/components/layout/DashboardSidebar';

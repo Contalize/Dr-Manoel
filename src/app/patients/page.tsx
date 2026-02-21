@@ -70,7 +70,6 @@ export default function PatientsPage() {
     const newState = !showSensitive;
     setShowSensitive(newState);
     if (newState) {
-      // Log de Auditoria LGPD para visualização de dados sensíveis
       await logAction("VISUALIZACAO_DADOS_SENSIVEIS", "TODOS", { screen: "CRM_PACIENTES" });
     }
   };
