@@ -1,3 +1,4 @@
+
 {
   "collections": {
     "users": {
@@ -24,6 +25,27 @@
         "lgpdConsent": { "type": "boolean", "description": "Consentimento explícito coletado" },
         "consentDate": { "type": "string" },
         "lastConsultation": { "type": "string" }
+      }
+    },
+    "medications": {
+      "description": "Base de dados curada de medicamentos e fitoterápicos.",
+      "fields": {
+        "name": { "type": "string" },
+        "activeIngredient": { "type": "string" },
+        "category": { "type": "string" },
+        "contraindications": { "type": "array" },
+        "leaflets": { "type": "string" }
+      }
+    },
+    "audit_logs": {
+      "description": "Trilha de auditoria para conformidade LGPD.",
+      "fields": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "action": { "type": "string" },
+        "patientId": { "type": "string" },
+        "timestamp": { "type": "timestamp" },
+        "metadata": { "type": "object" }
       }
     },
     "anamnesis": {

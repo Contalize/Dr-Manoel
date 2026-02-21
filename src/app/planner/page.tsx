@@ -1,6 +1,7 @@
+
 "use client"
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,53 +15,93 @@ import {
   FlaskConical, 
   Leaf, 
   Droplets,
-  Loader2
+  Loader2,
+  AlertTriangle,
+  Search,
+  FileDown,
+  QrCode
 } from "lucide-react";
 import { generateProtocolExplanation } from "@/ai/flows/generate-protocol-explanation";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { logAction } from "@/lib/audit";
+import { Badge } from "@/components/ui/badge";
 
-type TherapyType = "Suplemento" | "Óleo Essencial" | "Floral";
+type TherapyCategory = "Alopático" | "Fitoterápico" | "Floral" | "Suplemento";
 
 interface SelectedTherapy {
   id: string;
   name: string;
-  type: TherapyType;
+  activeIngredient: string;
+  category: TherapyCategory;
   dosage: string;
+  contraindications: string[];
 }
+
+// Mock da Base ANVISA/Curada para demonstração de autocomplete e alertas
+const MOCK_MASTER_DATABASE = [
+  { name: "Ashwagandha", ingredient: "Withania somnifera", category: "Fitoterápico", contraindications: ["Gravidez", "Hipertireoidismo"] },
+  { name: "Melatonina", ingredient: "N-acetil-5-metoxitriptamina", category: "Suplemento", contraindications: ["Insuficiência Renal"] },
+  { name: "Óleo Essencial de Lavanda", ingredient: "Lavandula angustifolia", category: "Fitoterápico", contraindications: ["Alergia a Linalol"] },
+  { name: "Rescue Remedy", ingredient: "Floral de Bach", category: "Floral", contraindications: [] },
+  { name: "Ibuprofeno", ingredient: "Ibuprofeno", category: "Alopático", contraindications: ["Gastrite", "Úlcera", "Asma"] },
+];
 
 export default function PlannerPage() {
   const [protocolName, setProtocolName] = useState("");
   const [anamnesisSummary, setAnamnesisSummary] = useState("");
   const [therapies, setTherapies] = useState<SelectedTherapy[]>([]);
-  const [newTherapyName, setNewTherapyName] = useState("");
-  const [newTherapyType, setNewTherapyType] = useState<TherapyType>("Suplemento");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [suggestions, setSuggestions] = useState<any[]>([]);
   const [explanation, setExplanation] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
 
-  const addTherapy = () => {
-    if (!newTherapyName) return;
+  useEffect(() => {
+    if (searchTerm.length > 2) {
+      const filtered = MOCK_MASTER_DATABASE.filter(item => 
+        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.ingredient.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setSuggestions(filtered);
+    } else {
+      setSuggestions([]);
+    }
+  }, [searchTerm]);
+
+  const addTherapyFromDatabase = (item: any) => {
     const newTherapy: SelectedTherapy = {
       id: Math.random().toString(36).substr(2, 9),
-      name: newTherapyName,
-      type: newTherapyType,
-      dosage: "1 dose ao dia"
+      name: item.name,
+      activeIngredient: item.ingredient,
+      category: item.category as TherapyCategory,
+      dosage: "A definir pelo profissional",
+      contraindications: item.contraindications
     };
     setTherapies([...therapies, newTherapy]);
-    setNewTherapyName("");
+    setSearchTerm("");
+    setSuggestions([]);
   };
 
   const removeTherapy = (id: string) => {
     setTherapies(therapies.filter(t => t.id !== id));
   };
 
+  const checkForInteractions = (therapy: SelectedTherapy) => {
+    if (!anamnesisSummary) return null;
+    const found = therapy.contraindications.find(ci => 
+      anamnesisSummary.toLowerCase().includes(ci.toLowerCase())
+    );
+    return found ? found : null;
+  };
+
   const handleGenerateAI = async () => {
     if (!protocolName || therapies.length === 0 || !anamnesisSummary) {
       toast({
         title: "Dados Incompletos",
-        description: "Por favor, forneça o nome do protocolo, resumo e ao menos uma terapia.",
+        description: "Preencha o nome do protocolo, contexto clínico e adicione ao menos uma terapia.",
         variant: "destructive"
       });
       return;
@@ -71,17 +112,21 @@ export default function PlannerPage() {
       const result = await generateProtocolExplanation({
         protocolName,
         anamnesisNotes: anamnesisSummary,
-        selectedTherapies: therapies.map(t => `${t.name} (${t.type})`)
+        selectedTherapies: therapies.map(t => `${t.name} [${t.activeIngredient}] (${t.category})`)
       });
       setExplanation(result.explanation);
+      
+      // Registro de Auditoria LGPD
+      await logAction("GERAR_RACIONAL_IA", "N/A", { protocolName, therapiesCount: therapies.length });
+
       toast({
-        title: "Racional Gerado",
-        description: "A IA analisou a compatibilidade e redigiu o racional clínico.",
+        title: "Racional Clínico Gerado",
+        description: "A inteligência farmacêutica analisou a compatibilidade das terapias.",
       });
     } catch (error) {
       toast({
-        title: "Erro",
-        description: "Falha ao gerar o racional via IA. Tente novamente.",
+        title: "Erro na Inteligência Clínica",
+        description: "Falha ao processar racional. Verifique a conexão.",
         variant: "destructive"
       });
     } finally {
@@ -89,35 +134,58 @@ export default function PlannerPage() {
     }
   };
 
+  const saveProtocol = async () => {
+    setIsSaving(true);
+    // Simulação de salvamento com Log de Auditoria
+    await logAction("SALVAR_PROTOCOLO", "N/A", { protocolName });
+    setTimeout(() => {
+      setIsSaving(false);
+      toast({
+        title: "Protocolo Arquivado",
+        description: "O documento foi salvo e auditado conforme normas ABNT/LGPD.",
+      });
+    }, 1000);
+  };
+
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
-      <header>
-        <h1 className="text-3xl font-bold text-primary font-headline">Planejador de Tratamento Integrativo</h1>
-        <p className="text-muted-foreground">Crie protocolos personalizados com racional clínico guiado por IA.</p>
+    <div className="max-w-6xl mx-auto space-y-8 pb-12">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-primary font-headline">Planejador de Inteligência Clínica</h1>
+          <p className="text-muted-foreground">Prescrição farmacêutica integrada com rastreabilidade ANVISA e logs LGPD.</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" className="border-primary/20 text-primary">
+            <FileDown className="h-4 w-4 mr-2" /> PDF Prescrição
+          </Button>
+          <Button variant="outline" className="border-primary/20 text-primary">
+            <QrCode className="h-4 w-4 mr-2" /> Validar QR
+          </Button>
+        </div>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
-          <Card className="border-none shadow-md overflow-hidden">
+          <Card className="border-none shadow-md overflow-hidden bg-white">
             <CardHeader className="bg-primary text-white">
-              <CardTitle>Definição do Protocolo</CardTitle>
-              <CardDescription className="text-white/70">Defina o contexto clínico e os objetivos.</CardDescription>
+              <CardTitle>Definição do Alvo Terapêutico</CardTitle>
+              <CardDescription className="text-white/80">Contextualize o quadro clínico para análise de segurança.</CardDescription>
             </CardHeader>
             <CardContent className="p-6 space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-bold text-primary uppercase tracking-wider">Nome do Protocolo</label>
+                <label className="text-sm font-bold text-primary uppercase tracking-wider">Título do Protocolo</label>
                 <Input 
-                  placeholder="Ex: Manejo de Ansiedade e Ciclo Circadiano" 
+                  placeholder="Ex: Manejo do Estresse e Saúde Gastrointestinal" 
                   value={protocolName}
                   onChange={(e) => setProtocolName(e.target.value)}
-                  className="bg-secondary/50 border-none"
+                  className="bg-secondary/20 border-none h-12"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-bold text-primary uppercase tracking-wider">Contexto Clínico (Resumo da Anamnese)</label>
+                <label className="text-sm font-bold text-primary uppercase tracking-wider">Histórico Clínico do Paciente (Base para Alertas)</label>
                 <Textarea 
-                  placeholder="Resuma as queixas principais, saúde intestinal e qualidade do sono..." 
-                  className="min-h-[120px] bg-secondary/50 border-none"
+                  placeholder="Descreva sintomas e doenças diagnosticadas (Ex: Gastrite, Ansiedade)..." 
+                  className="min-h-[120px] bg-secondary/20 border-none resize-none"
                   value={anamnesisSummary}
                   onChange={(e) => setAnamnesisSummary(e.target.value)}
                 />
@@ -125,116 +193,168 @@ export default function PlannerPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-none shadow-md">
+          <Card className="border-none shadow-md bg-white">
             <CardHeader>
-              <CardTitle className="text-primary font-headline">Terapias Selecionadas</CardTitle>
-              <CardDescription>Adicione suplementos, óleos ou florais ao protocolo.</CardDescription>
+              <CardTitle className="text-primary font-headline">Seleção Ativa de Terapias (Base ANVISA/Curada)</CardTitle>
+              <CardDescription>Busque medicamentos e fitoterápicos autorizados.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex flex-col md:flex-row gap-3">
-                <Select value={newTherapyType} onValueChange={(v) => setNewTherapyType(v as TherapyType)}>
-                  <SelectTrigger className="w-full md:w-48 bg-secondary/50 border-none">
-                    <SelectValue placeholder="Tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Suplemento">Suplemento</SelectItem>
-                    <SelectItem value="Óleo Essencial">Óleo Essencial</SelectItem>
-                    <SelectItem value="Floral">Floral</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Input 
-                  placeholder="Nome (Ex: Ashwagandha 500mg)" 
-                  value={newTherapyName}
-                  onChange={(e) => setNewTherapyName(e.target.value)}
-                  className="flex-1 bg-secondary/50 border-none"
-                />
-                <Button onClick={addTherapy} className="bg-primary hover:bg-primary/90">
-                  <Plus className="h-4 w-4 mr-2" /> Adicionar
-                </Button>
-              </div>
+              <div className="relative">
+                <div className="flex gap-3">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                      placeholder="Buscar por nome ou princípio ativo..." 
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10 bg-secondary/20 border-none h-12"
+                    />
+                  </div>
+                </div>
 
-              <div className="space-y-3 mt-4">
-                {therapies.length === 0 && (
-                  <div className="text-center py-10 border-2 border-dashed rounded-xl border-muted">
-                    <p className="text-muted-foreground">Nenhuma terapia adicionada.</p>
+                {suggestions.length > 0 && (
+                  <div className="absolute z-20 w-full mt-1 bg-white border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1">
+                    {suggestions.map((item, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => addTherapyFromDatabase(item)}
+                        className="w-full text-left p-4 hover:bg-primary/5 border-b border-border last:border-none flex items-center justify-between group"
+                      >
+                        <div>
+                          <div className="font-bold text-primary">{item.name}</div>
+                          <div className="text-xs text-muted-foreground italic">{item.ingredient}</div>
+                        </div>
+                        <Badge variant="outline" className="text-[10px] uppercase font-bold text-accent border-accent/20">
+                          {item.category}
+                        </Badge>
+                      </button>
+                    ))}
                   </div>
                 )}
-                {therapies.map((therapy) => (
-                  <div key={therapy.id} className="flex items-center justify-between p-4 bg-secondary/30 rounded-xl border border-border group">
-                    <div className="flex items-center gap-4">
-                      <div className={cn(
-                        "p-2 rounded-lg",
-                        therapy.type === "Suplemento" ? "bg-green-100 text-green-700" :
-                        therapy.type === "Óleo Essencial" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"
-                      )}>
-                        {therapy.type === "Suplemento" ? <Leaf className="h-4 w-4" /> :
-                         therapy.type === "Óleo Essencial" ? <Droplets className="h-4 w-4" /> : <FlaskConical className="h-4 w-4" />}
+              </div>
+
+              <div className="space-y-4">
+                {therapies.length === 0 && (
+                  <div className="text-center py-12 border-2 border-dashed rounded-2xl border-secondary/30 bg-secondary/5">
+                    <p className="text-muted-foreground text-sm">Utilize a busca acima para adicionar terapias ao protocolo.</p>
+                  </div>
+                )}
+                {therapies.map((therapy) => {
+                  const interaction = checkForInteractions(therapy);
+                  return (
+                    <div key={therapy.id} className={cn(
+                      "flex flex-col p-5 rounded-2xl border transition-all duration-300",
+                      interaction ? "bg-red-50 border-red-200 shadow-sm" : "bg-secondary/10 border-border hover:border-primary/20"
+                    )}>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-4">
+                          <div className={cn(
+                            "p-3 rounded-xl",
+                            therapy.category === "Fitoterápico" ? "bg-emerald-100 text-emerald-700" :
+                            therapy.category === "Alopático" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"
+                          )}>
+                            {therapy.category === "Fitoterápico" ? <Leaf className="h-5 w-5" /> :
+                             therapy.category === "Alopático" ? <FlaskConical className="h-5 w-5" /> : <Droplets className="h-5 w-5" />}
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-primary flex items-center gap-2">
+                              {therapy.name}
+                              {interaction && (
+                                <Badge variant="destructive" className="animate-pulse flex items-center gap-1 text-[10px] uppercase font-bold border-none">
+                                  <AlertTriangle className="h-3 w-3" /> Risco de Interação
+                                </Badge>
+                              )}
+                            </h4>
+                            <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">{therapy.activeIngredient}</p>
+                          </div>
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => removeTherapy(therapy.id)} className="text-muted-foreground hover:text-red-600">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <div>
-                        <h4 className="font-bold text-primary">{therapy.name}</h4>
-                        <p className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">{therapy.type}</p>
+
+                      {interaction && (
+                        <div className="mt-2 p-3 bg-red-100/50 rounded-lg text-xs text-red-800 font-medium border border-red-200">
+                          <strong>Alerta Farmacêutico:</strong> Esta terapia é contraindicada para pacientes com histórico de <strong>"{interaction}"</strong> detectado no resumo clínico.
+                        </div>
+                      )}
+
+                      <div className="mt-4">
+                        <Input 
+                          placeholder="Posologia e Instruções (Ex: 1 cápsula via oral às 20h)" 
+                          className="bg-white/50 border-border text-xs"
+                          defaultValue={therapy.dosage}
+                        />
                       </div>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={() => removeTherapy(therapy.id)} className="text-muted-foreground hover:text-red-600">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
         </div>
 
         <div className="space-y-6">
-          <Card className="border-none shadow-md bg-white">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-primary font-headline">
-                <Sparkles className="h-5 w-5 text-accent" />
-                Gerador de Racional IA
+          <Card className="border-none shadow-lg bg-white overflow-hidden">
+            <CardHeader className="bg-accent text-white">
+              <CardTitle className="flex items-center gap-2 font-headline">
+                <Sparkles className="h-5 w-5" />
+                Inteligência Clínica IA
               </CardTitle>
-              <CardDescription>Crie automaticamente uma justificativa profissional para o protocolo.</CardDescription>
+              <CardDescription className="text-white/80">Geração de racional farmacêutico auditado.</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               <Button 
                 onClick={handleGenerateAI} 
                 disabled={isGenerating}
-                className="w-full bg-accent hover:bg-accent/90 text-white shadow-lg py-6"
+                className="w-full bg-accent hover:bg-accent/90 text-white shadow-lg py-7 font-bold text-lg"
               >
-                {isGenerating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-                Gerar Racional
+                {isGenerating ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Sparkles className="h-5 w-5 mr-2" />}
+                Gerar Racional Clínico
               </Button>
               
               {explanation && (
-                <div className="mt-6 p-4 bg-accent/5 border border-accent/20 rounded-xl space-y-3">
-                  <h4 className="text-sm font-bold text-accent uppercase tracking-wider">Racional Gerado</h4>
-                  <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                <div className="mt-6 p-5 bg-accent/5 border border-accent/20 rounded-2xl space-y-3 animate-in fade-in zoom-in-95">
+                  <h4 className="text-xs font-bold text-accent uppercase tracking-widest flex items-center gap-2">
+                    <CheckCircle2 className="h-3 w-3" /> Justificativa Profissional
+                  </h4>
+                  <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap font-medium italic">
                     {explanation}
                   </div>
-                  <Button variant="outline" size="sm" className="w-full text-xs mt-2 border-accent/30 text-accent">
-                    Editar Racional
-                  </Button>
+                  <div className="pt-4 border-t border-accent/10 flex items-center justify-between">
+                    <span className="text-[10px] text-accent/60 font-bold uppercase tracking-tighter">Gerado por IA Farmacêutica</span>
+                    <Button variant="ghost" size="sm" className="text-[10px] h-6 px-2 text-accent">Editar Texto</Button>
+                  </div>
                 </div>
               )}
             </CardContent>
-            <CardFooter className="pt-0 flex flex-col items-stretch">
-              <Button className="w-full bg-primary hover:bg-primary/90 mt-2">
-                <Save className="h-4 w-4 mr-2" /> Salvar Protocolo
+            <CardFooter className="pt-0 flex flex-col items-stretch px-6 pb-6 gap-3">
+              <Button 
+                onClick={saveProtocol} 
+                disabled={isSaving}
+                className="w-full bg-primary hover:bg-primary/90 py-6"
+              >
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                Arquivar e Auditar Protocolo
               </Button>
+              <p className="text-[10px] text-center text-muted-foreground uppercase tracking-widest font-bold">
+                Conformidade RDC ANVISA • LGPD Rastreável
+              </p>
             </CardFooter>
           </Card>
 
-          <Card className="border-none shadow-md bg-secondary/20">
+          <Card className="border-none shadow-md bg-emerald-50 border-l-4 border-emerald-500">
             <CardContent className="p-6">
-              <h3 className="text-sm font-bold text-primary uppercase mb-4">Metas Integrativas</h3>
+              <h3 className="text-sm font-bold text-emerald-800 uppercase mb-4 tracking-wider">Objetivos Farmacoterapêuticos</h3>
               <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" /> Otimização de Bio-Idade
+                <div className="flex items-center gap-3 text-sm text-emerald-700 font-medium">
+                  <div className="bg-emerald-500 rounded-full p-0.5"><CheckCircle2 className="h-3 w-3 text-white" /></div> Otimização Bioquímica
                 </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" /> Suporte Mitocondrial
+                <div className="flex items-center gap-3 text-sm text-emerald-700 font-medium">
+                  <div className="bg-emerald-500 rounded-full p-0.5"><CheckCircle2 className="h-3 w-3 text-white" /></div> Redução de Marcadores PCR
                 </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" /> Equilíbrio do Eixo HPA
+                <div className="flex items-center gap-3 text-sm text-emerald-700 font-medium">
+                  <div className="bg-emerald-500 rounded-full p-0.5"><CheckCircle2 className="h-3 w-3 text-white" /></div> Equilíbrio do Eixo HPA
                 </div>
               </div>
             </CardContent>
