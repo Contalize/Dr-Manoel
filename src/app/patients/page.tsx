@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { db } from "@/firebase/config";
-import { collection, onSnapshot, query, addDoc } from "firebase/firestore";
+import { collection, onSnapshot, query } from "firebase/firestore";
 import { Input } from "@/components/ui/input";
 import { 
   Table, 
@@ -48,8 +48,10 @@ export default function PatientsPage() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [showSensitive, setShowSensitive] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const q = query(collection(db, "patients"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const patientList = snapshot.docs.map(doc => ({
@@ -72,15 +74,17 @@ export default function PatientsPage() {
     return cpf.replace(/\d(?=\d{4})/g, "*");
   };
 
+  if (!mounted) return null;
+
   return (
     <div className="space-y-8">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-primary font-headline">Patient CRM</h1>
-          <p className="text-muted-foreground">Manage and track patient clinical history with full LGPD compliance.</p>
+          <h1 className="text-3xl font-bold text-primary font-headline">CRM de Pacientes</h1>
+          <p className="text-muted-foreground">Gerencie o histórico clínico com total conformidade à LGPD.</p>
         </div>
         <Button className="bg-accent text-white hover:bg-accent/90">
-          <Plus className="h-4 w-4 mr-2" /> New Patient
+          <Plus className="h-4 w-4 mr-2" /> Novo Paciente
         </Button>
       </header>
 
@@ -88,7 +92,7 @@ export default function PatientsPage() {
         <div className="relative w-full md:w-96">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
-            placeholder="Search by name or email..." 
+            placeholder="Buscar por nome ou e-mail..." 
             className="pl-10 border-none shadow-sm bg-white"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -102,10 +106,10 @@ export default function PatientsPage() {
             className="flex-1 md:flex-none border-primary/20 text-primary"
           >
             {showSensitive ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
-            {showSensitive ? "Mask Data" : "Reveal Data"}
+            {showSensitive ? "Ocultar Dados" : "Revelar Dados"}
           </Button>
           <Button variant="outline" size="sm" className="flex-1 md:flex-none border-primary/20 text-primary">
-            <Filter className="h-4 w-4 mr-2" /> Filter
+            <Filter className="h-4 w-4 mr-2" /> Filtrar
           </Button>
         </div>
       </div>
@@ -114,19 +118,19 @@ export default function PatientsPage() {
         <Table>
           <TableHeader className="bg-secondary/50">
             <TableRow>
-              <TableHead className="font-bold text-primary">Patient Name</TableHead>
-              <TableHead className="font-bold text-primary">CPF (Masked)</TableHead>
-              <TableHead className="font-bold text-primary">Age (Chrono/Bio)</TableHead>
-              <TableHead className="font-bold text-primary">Last Consultation</TableHead>
+              <TableHead className="font-bold text-primary">Nome do Paciente</TableHead>
+              <TableHead className="font-bold text-primary">CPF (Mascarado)</TableHead>
+              <TableHead className="font-bold text-primary">Idade (Crono/Bio)</TableHead>
+              <TableHead className="font-bold text-primary">Última Consulta</TableHead>
               <TableHead className="font-bold text-primary">Status</TableHead>
-              <TableHead className="text-right font-bold text-primary">Actions</TableHead>
+              <TableHead className="text-right font-bold text-primary">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredPatients.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
-                  No patients found. Click "New Patient" to get started.
+                  Nenhum paciente encontrado.
                 </TableCell>
               </TableRow>
             ) : (
@@ -155,7 +159,7 @@ export default function PatientsPage() {
                       "capitalize px-3 py-1 border-none",
                       patient.status === 'active' ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                     )}>
-                      {patient.status}
+                      {patient.status === 'active' ? 'Ativo' : 'Inativo'}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
@@ -166,12 +170,12 @@ export default function PatientsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem>View Profile</DropdownMenuItem>
-                        <DropdownMenuItem>New Anamnesis</DropdownMenuItem>
-                        <DropdownMenuItem>New Prescription</DropdownMenuItem>
+                        <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                        <DropdownMenuItem>Ver Perfil</DropdownMenuItem>
+                        <DropdownMenuItem>Nova Anamnese</DropdownMenuItem>
+                        <DropdownMenuItem>Nova Prescrição</DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-red-600">Delete Record</DropdownMenuItem>
+                        <DropdownMenuItem className="text-red-600">Excluir Registro</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
