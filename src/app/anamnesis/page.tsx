@@ -12,7 +12,6 @@ import {
   Activity, 
   Moon, 
   Apple, 
-  ShieldAlert, 
   Save, 
   ArrowRight, 
   ArrowLeft,
@@ -32,10 +31,10 @@ export default function AnamnesisPage() {
       <header className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-primary font-headline">Anamnese Integrativa</h1>
-          <p className="text-muted-foreground">Avaliação clínica baseada na metodologia SOAP.</p>
+          <p className="text-muted-foreground">Avaliação clínica baseada na metodologia SOAP (Subjetivo, Objetivo, Avaliação, Plano).</p>
         </div>
         <div className="text-right">
-          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">Progresso da Sessão</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">Status da Sessão</p>
           <div className="flex items-center gap-3">
             <Progress value={progress} className="w-32 h-2" />
             <span className="text-sm font-bold text-primary">{Math.round(progress)}%</span>
@@ -45,7 +44,7 @@ export default function AnamnesisPage() {
 
       <Card className="border-none shadow-xl overflow-hidden">
         <Tabs value={`step-${step}`} className="w-full">
-          <div className="bg-secondary/50 p-2 border-b border-border">
+          <div className="bg-secondary/10 p-2 border-b">
             <TabsList className="grid grid-cols-4 bg-transparent w-full">
               <TabsTrigger value="step-1" onClick={() => setStep(1)} className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-lg font-bold">
                 1. Subjetivo
@@ -63,149 +62,132 @@ export default function AnamnesisPage() {
           </div>
 
           <CardContent className="p-8">
-            <TabsContent value="step-1" className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+            <TabsContent value="step-1" className="space-y-6">
               <div className="flex items-center gap-3 mb-4">
-                <div className="bg-primary/10 p-2 rounded-lg">
-                  <Stethoscope className="h-6 w-6 text-primary" />
-                </div>
+                <div className="bg-primary/10 p-2 rounded-lg"><Stethoscope className="h-6 w-6 text-primary" /></div>
                 <div>
-                  <h3 className="text-lg font-bold text-primary">Subjetivo (Voz do Paciente)</h3>
-                  <p className="text-sm text-muted-foreground">Queixa principal, sintomas e histórico médico.</p>
+                  <h3 className="text-lg font-bold text-primary">Subjetivo (Relato do Paciente)</h3>
+                  <p className="text-sm text-muted-foreground">Queixas principais, sintomas e histórico de saúde.</p>
                 </div>
               </div>
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label className="font-bold text-primary">Queixa Principal</Label>
-                  <Textarea placeholder="Descreva o motivo principal da consulta..." className="bg-secondary/30 border-none min-h-[100px]" />
+                  <Textarea placeholder="Descreva detalhadamente os sintomas relatados..." className="bg-secondary/20 border-none min-h-[100px]" />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label className="font-bold text-primary">Nível de Dor (0-10)</Label>
+                    <Label className="font-bold text-primary">Intensidade da Dor (0-10)</Label>
                     <Slider defaultValue={[0]} max={10} step={1} className="py-4" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="font-bold text-primary">Nível de Estresse</Label>
+                    <Label className="font-bold text-primary">Nível de Estresse Percebido</Label>
                     <Slider defaultValue={[5]} max={10} step={1} className="py-4" />
                   </div>
                 </div>
               </div>
             </TabsContent>
 
-            <TabsContent value="step-2" className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+            <TabsContent value="step-2" className="space-y-6">
               <div className="flex items-center gap-3 mb-4">
-                <div className="bg-accent/10 p-2 rounded-lg">
-                  <Activity className="h-6 w-6 text-accent" />
-                </div>
+                <div className="bg-accent/10 p-2 rounded-lg"><Activity className="h-6 w-6 text-accent" /></div>
                 <div>
-                  <h3 className="text-lg font-bold text-primary">Objetivo (Achados Clínicos)</h3>
-                  <p className="text-sm text-muted-foreground">Exame físico e resultados laboratoriais.</p>
+                  <h3 className="text-lg font-bold text-primary">Objetivo (Dados Clínicos)</h3>
+                  <p className="text-sm text-muted-foreground">Sinais vitais, exames físicos e laboratoriais.</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
                   <Label>Pressão Arterial</Label>
-                  <Input placeholder="120/80 mmHg" className="bg-secondary/30 border-none" />
+                  <Input placeholder="120/80 mmHg" className="bg-secondary/20 border-none" />
                 </div>
                 <div className="space-y-2">
                   <Label>Frequência Cardíaca</Label>
-                  <Input placeholder="72 bpm" className="bg-secondary/30 border-none" />
+                  <Input placeholder="75 bpm" className="bg-secondary/20 border-none" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Peso (kg)</Label>
-                  <Input placeholder="75.5" className="bg-secondary/30 border-none" />
+                  <Label>Peso Corporal (kg)</Label>
+                  <Input placeholder="70.0" className="bg-secondary/20 border-none" />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label className="font-bold text-primary">Notas do Exame Físico</Label>
-                <Textarea placeholder="Observe sinais visíveis, condição da pele, palpação abdominal..." className="bg-secondary/30 border-none min-h-[100px]" />
+                <Label className="font-bold text-primary">Observações do Exame Físico</Label>
+                <Textarea placeholder="Descreva sinais visíveis, estado da pele, palpação..." className="bg-secondary/20 border-none min-h-[100px]" />
               </div>
             </TabsContent>
 
-            <TabsContent value="step-3" className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+            <TabsContent value="step-3" className="space-y-6">
               <div className="flex items-center gap-3 mb-4">
-                <div className="bg-primary/10 p-2 rounded-lg text-primary">
-                  <Moon className="h-6 w-6" />
-                </div>
+                <div className="bg-primary/10 p-2 rounded-lg text-primary"><Apple className="h-6 w-6" /></div>
                 <div>
-                  <h3 className="text-lg font-bold text-primary">Marcadores Integrativos</h3>
-                  <p className="text-sm text-muted-foreground">Saúde intestinal, qualidade do sono e estilo de vida.</p>
+                  <h3 className="text-lg font-bold text-primary">Marcadores de Estilo de Vida</h3>
+                  <p className="text-sm text-muted-foreground">Saúde intestinal, sono e alimentação.</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-4 p-4 rounded-xl bg-secondary/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Apple className="h-4 w-4 text-green-600" />
-                    <h4 className="font-bold text-sm uppercase tracking-wider text-primary">Saúde Intestinal</h4>
-                  </div>
+                <div className="space-y-4 p-4 rounded-xl bg-secondary/10">
+                  <h4 className="font-bold text-xs uppercase text-primary">Saúde Gastrointestinal</h4>
                   <div className="space-y-2">
                     <Label className="text-xs">Frequência de Evacuação</Label>
-                    <Input placeholder="ex: Diária, 2x por semana" className="bg-white border-none text-sm" />
+                    <Input placeholder="Ex: Diária" className="bg-white border-none" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs">Escala de Bristol</Label>
-                    <Input placeholder="Tipo 1-7" className="bg-white border-none text-sm" />
+                    <Label className="text-xs">Escala de Bristol (Tipo)</Label>
+                    <Input placeholder="Tipo 1 a 7" className="bg-white border-none" />
                   </div>
                 </div>
-                <div className="space-y-4 p-4 rounded-xl bg-secondary/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Moon className="h-4 w-4 text-blue-600" />
-                    <h4 className="font-bold text-sm uppercase tracking-wider text-primary">Ritmo Circadiano</h4>
+                <div className="space-y-4 p-4 rounded-xl bg-secondary/10">
+                  <h4 className="font-bold text-xs uppercase text-primary">Qualidade do Sono</h4>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Horas de Sono por Noite</Label>
+                    <Input placeholder="Ex: 8 horas" className="bg-white border-none" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs">Duração do Sono (hrs)</Label>
-                    <Input placeholder="7.5" className="bg-white border-none text-sm" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">Energia Matinal (1-10)</Label>
-                    <Input placeholder="8" className="bg-white border-none text-sm" />
+                    <Label className="text-xs">Nível de Energia ao Acordar</Label>
+                    <Input placeholder="Escala 1 a 10" className="bg-white border-none" />
                   </div>
                 </div>
               </div>
             </TabsContent>
 
-            <TabsContent value="step-4" className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+            <TabsContent value="step-4" className="space-y-6">
               <div className="flex items-center gap-3 mb-4">
-                <div className="bg-accent/10 p-2 rounded-lg text-accent">
-                  <CheckCircle2 className="h-6 w-6" />
-                </div>
+                <div className="bg-accent/10 p-2 rounded-lg text-accent"><CheckCircle2 className="h-6 w-6" /></div>
                 <div>
-                  <h3 className="text-lg font-bold text-primary">Avaliação e Plano</h3>
-                  <p className="text-sm text-muted-foreground">Raciocínio clínico e estratégia terapêutica.</p>
+                  <h3 className="text-lg font-bold text-primary">Avaliação e Plano de Cuidado</h3>
+                  <p className="text-sm text-muted-foreground">Raciocínio clínico e estratégia terapêutica final.</p>
                 </div>
               </div>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="font-bold text-primary">Diagnóstico / Avaliação Integrativa</Label>
-                  <Textarea placeholder="Resuma seu raciocínio clínico com base nos dados..." className="bg-secondary/30 border-none min-h-[120px]" />
+                  <Label className="font-bold text-primary">Avaliação Integrativa (Diagnóstico Clínico)</Label>
+                  <Textarea placeholder="Resuma seu raciocínio com base nos dados coletados..." className="bg-secondary/20 border-none min-h-[120px]" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="font-bold text-primary">Estratégia Proposta (O Plano)</Label>
-                  <Textarea placeholder="Próximos passos: mudanças de estilo de vida, suplementos..." className="bg-secondary/30 border-none min-h-[120px]" />
+                  <Label className="font-bold text-primary">Plano Terapêutico (Estratégia)</Label>
+                  <Textarea placeholder="Defina os suplementos, mudanças de hábitos e próximos passos..." className="bg-secondary/20 border-none min-h-[120px]" />
                 </div>
               </div>
             </TabsContent>
           </CardContent>
 
-          <CardFooter className="p-8 border-t bg-secondary/10 flex justify-between">
+          <CardFooter className="p-8 border-t bg-secondary/5 flex justify-between">
             <Button 
               variant="outline" 
               onClick={() => setStep(prev => Math.max(1, prev - 1))}
               disabled={step === 1}
               className="border-primary/20 text-primary"
             >
-              <ArrowLeft className="h-4 w-4 mr-2" /> Passo Anterior
+              <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
             </Button>
             
             {step < totalSteps ? (
-              <Button 
-                onClick={() => setStep(prev => Math.min(totalSteps, prev + 1))}
-                className="bg-primary text-white"
-              >
+              <Button onClick={() => setStep(prev => Math.min(totalSteps, prev + 1))} className="bg-primary text-white">
                 Próximo Passo <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             ) : (
-              <Button className="bg-accent text-white hover:bg-accent/90 px-8">
-                <Save className="h-4 w-4 mr-2" /> Finalizar Anamnese
+              <Button className="bg-accent text-white hover:bg-accent/90 px-8 shadow-md">
+                <Save className="h-4 w-4 mr-2" /> Salvar Anamnese
               </Button>
             )}
           </CardFooter>
