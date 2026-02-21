@@ -1,0 +1,51 @@
+{
+  "collections": {
+    "patients": {
+      "description": "Clinical profiles for patients, including demographic and biological data.",
+      "fields": {
+        "name": { "type": "string", "description": "Full name of the patient" },
+        "email": { "type": "string", "description": "Contact email" },
+        "cpf": { "type": "string", "description": "Brazilian tax ID" },
+        "phone": { "type": "string", "description": "Contact number" },
+        "birthDate": { "type": "string", "description": "ISO date string" },
+        "chronoAge": { "type": "number", "description": "Chronological age" },
+        "bioAge": { "type": "number", "description": "Biological age estimation" },
+        "gender": { "type": "string", "description": "Gender identity" },
+        "status": { "type": "string", "description": "active or inactive" },
+        "lastConsultation": { "type": "string", "description": "Date of last visit" }
+      }
+    },
+    "anamnesis": {
+      "description": "SOAP assessment records linked to specific patients.",
+      "fields": {
+        "patientId": { "type": "string", "description": "ID of the associated patient" },
+        "subjective": { "type": "object", "description": "Patient complaints and symptoms" },
+        "objective": { "type": "object", "description": "Clinical measurements" },
+        "markers": { "type": "object", "description": "Gut health and sleep markers" },
+        "assessment": { "type": "string", "description": "Clinical diagnosis" },
+        "createdAt": { "type": "timestamp", "description": "Record timestamp" }
+      }
+    },
+    "protocols": {
+      "description": "Integrative treatment protocols developed for patients.",
+      "fields": {
+        "patientId": { "type": "string", "description": "ID of the associated patient" },
+        "name": { "type": "string", "description": "Protocol title" },
+        "rationale": { "type": "string", "description": "AI-generated or manual rationale" },
+        "therapies": { "type": "array", "description": "List of supplements and treatments" },
+        "createdAt": { "type": "timestamp", "description": "Creation timestamp" }
+      }
+    },
+    "transactions": {
+      "description": "Financial records for the clinic.",
+      "fields": {
+        "patientId": { "type": "string", "description": "Associated patient ID" },
+        "patientName": { "type": "string", "description": "Denormalized name for list views" },
+        "amount": { "type": "number", "description": "Transaction value" },
+        "status": { "type": "string", "description": "Paid or Pending" },
+        "method": { "type": "string", "description": "Payment method" },
+        "date": { "type": "string", "description": "ISO date string" }
+      }
+    }
+  }
+}

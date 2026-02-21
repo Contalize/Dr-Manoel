@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react";
-import { patients } from "@/lib/mock-data";
+import { useState, useEffect } from "react";
+import { db } from "@/firebase/config";
+import { collection, onSnapshot, query, addDoc } from "firebase/firestore";
 import { Input } from "@/components/ui/input";
 import { 
   Table, 
@@ -32,16 +33,41 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
+interface Patient {
+  id: string;
+  name: string;
+  email: string;
+  cpf: string;
+  chronoAge: number;
+  bioAge: number;
+  lastConsultation: string;
+  status: 'active' | 'inactive';
+}
+
 export default function PatientsPage() {
+  const [patients, setPatients] = useState<Patient[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [showSensitive, setShowSensitive] = useState(false);
 
+  useEffect(() => {
+    const q = query(collection(db, "patients"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const patientList = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Patient[];
+      setPatients(patientList);
+    });
+    return () => unsubscribe();
+  }, []);
+
   const filteredPatients = patients.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.email.toLowerCase().includes(searchTerm.toLowerCase())
+    p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    p.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const maskCPF = (cpf: string) => {
+    if (!cpf) return "";
     if (showSensitive) return cpf;
     return cpf.replace(/\d(?=\d{4})/g, "*");
   };
@@ -97,53 +123,61 @@ export default function PatientsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredPatients.map((patient) => (
-              <TableRow key={patient.id} className="hover:bg-secondary/20 transition-colors">
-                <TableCell className="font-medium">
-                  <div className="flex flex-col">
-                    <span className="text-foreground">{patient.name}</span>
-                    <span className="text-xs text-muted-foreground">{patient.email}</span>
-                  </div>
-                </TableCell>
-                <TableCell className="font-mono text-xs">{maskCPF(patient.cpf)}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold">{patient.chronoAge}</span>
-                    <ArrowRightLeft className="h-3 w-3 text-muted-foreground" />
-                    <span className={cn(
-                      "text-sm font-bold",
-                      patient.bioAge < patient.chronoAge ? "text-green-600" : "text-red-600"
-                    )}>{patient.bioAge}</span>
-                  </div>
-                </TableCell>
-                <TableCell className="text-sm">{patient.lastConsultation}</TableCell>
-                <TableCell>
-                  <Badge variant={patient.status === 'active' ? 'default' : 'secondary'} className={cn(
-                    "capitalize px-3 py-1 border-none",
-                    patient.status === 'active' ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-                  )}>
-                    {patient.status}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem>View Profile</DropdownMenuItem>
-                      <DropdownMenuItem>New Anamnesis</DropdownMenuItem>
-                      <DropdownMenuItem>New Prescription</DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-red-600">Delete Record</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+            {filteredPatients.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
+                  No patients found. Click "New Patient" to get started.
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              filteredPatients.map((patient) => (
+                <TableRow key={patient.id} className="hover:bg-secondary/20 transition-colors">
+                  <TableCell className="font-medium">
+                    <div className="flex flex-col">
+                      <span className="text-foreground">{patient.name}</span>
+                      <span className="text-xs text-muted-foreground">{patient.email}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="font-mono text-xs">{maskCPF(patient.cpf)}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold">{patient.chronoAge}</span>
+                      <ArrowRightLeft className="h-3 w-3 text-muted-foreground" />
+                      <span className={cn(
+                        "text-sm font-bold",
+                        patient.bioAge < patient.chronoAge ? "text-green-600" : "text-red-600"
+                      )}>{patient.bioAge}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-sm">{patient.lastConsultation}</TableCell>
+                  <TableCell>
+                    <Badge variant={patient.status === 'active' ? 'default' : 'secondary'} className={cn(
+                      "capitalize px-3 py-1 border-none",
+                      patient.status === 'active' ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                    )}>
+                      {patient.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem>View Profile</DropdownMenuItem>
+                        <DropdownMenuItem>New Anamnesis</DropdownMenuItem>
+                        <DropdownMenuItem>New Prescription</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className="text-red-600">Delete Record</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>

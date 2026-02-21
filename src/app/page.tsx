@@ -1,5 +1,8 @@
 "use client"
 
+import { useState, useEffect } from "react";
+import { db } from "@/firebase/config";
+import { collection, onSnapshot, query, where, orderBy, limit } from "firebase/firestore";
 import { 
   Users, 
   CalendarCheck, 
@@ -21,7 +24,6 @@ import {
   AreaChart,
   Area
 } from "recharts";
-import { appointments, financialData, patients } from "@/lib/mock-data";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -34,12 +36,46 @@ const healthTrends = [
 ];
 
 export default function Dashboard() {
+  const [patientCount, setPatientCount] = useState(0);
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const [revenue, setRevenue] = useState(0);
+
+  useEffect(() => {
+    // Real-time patient count
+    const unsubscribePatients = onSnapshot(collection(db, "patients"), (snapshot) => {
+      setPatientCount(snapshot.size);
+    });
+
+    // Today's appointments
+    const today = new Date().toISOString().split('T')[0];
+    const qAppointments = query(
+      collection(db, "appointments"), 
+      where("date", "==", today),
+      orderBy("time", "asc")
+    );
+    const unsubscribeApps = onSnapshot(qAppointments, (snapshot) => {
+      setAppointments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    // Revenue calc (simplified)
+    const unsubscribeFinance = onSnapshot(collection(db, "transactions"), (snapshot) => {
+      const total = snapshot.docs.reduce((acc, doc) => acc + (doc.data().amount || 0), 0);
+      setRevenue(total);
+    });
+
+    return () => {
+      unsubscribePatients();
+      unsubscribeApps();
+      unsubscribeFinance();
+    };
+  }, []);
+
   return (
     <div className="space-y-8 pb-12">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-primary font-headline">Welcome back, Dr. Dupont</h1>
-          <p className="text-muted-foreground">Your clinic overview for today, May 20th, 2024.</p>
+          <p className="text-muted-foreground">Your clinic overview for today, {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.</p>
         </div>
         <div className="flex gap-3">
           <Button variant="outline" className="gap-2 border-primary/20 text-primary hover:bg-primary hover:text-white transition-all">
@@ -55,18 +91,18 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard 
           title="Total Patients" 
-          value={patients.length} 
+          value={patientCount} 
           icon={Users} 
           trend={{ value: "12%", positive: true }} 
         />
         <StatCard 
           title="Appointments Today" 
-          value={appointments.filter(a => a.date === '2024-05-20').length} 
+          value={appointments.length} 
           icon={CalendarCheck} 
         />
         <StatCard 
-          title="Revenue (May)" 
-          value={`R$ ${financialData.monthlyRevenue.toLocaleString()}`} 
+          title="Total Revenue" 
+          value={`R$ ${revenue.toLocaleString()}`} 
           icon={TrendingUp} 
           trend={{ value: "8%", positive: true }} 
         />
@@ -83,7 +119,6 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Charts Section */}
         <Card className="lg:col-span-2 border-none shadow-md">
           <CardHeader>
             <CardTitle className="text-primary font-headline">Clinical Performance Trends</CardTitle>
@@ -133,7 +168,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Recent Schedule */}
         <Card className="border-none shadow-md">
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <div>
@@ -146,16 +180,17 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
-              {appointments.filter(a => a.date === '2024-05-20').map((appointment) => {
-                const patient = patients.find(p => p.id === appointment.patientId);
-                return (
+              {appointments.length === 0 ? (
+                <p className="text-sm text-center text-muted-foreground py-10">No appointments scheduled for today.</p>
+              ) : (
+                appointments.map((appointment) => (
                   <div key={appointment.id} className="flex items-start gap-4 p-3 rounded-xl hover:bg-secondary transition-colors cursor-pointer group">
                     <div className="bg-primary/5 p-3 rounded-lg text-primary font-bold text-center min-w-[60px] group-hover:bg-primary group-hover:text-white transition-colors">
                       <span className="text-xs uppercase block font-medium opacity-70">Time</span>
                       {appointment.time}
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-bold text-sm text-foreground">{patient?.name}</h4>
+                      <h4 className="font-bold text-sm text-foreground">{appointment.patientName}</h4>
                       <p className="text-xs text-muted-foreground mb-2">{appointment.type}</p>
                       <Badge variant="outline" className={cn(
                         "text-[10px] uppercase font-bold px-1.5 py-0",
@@ -164,10 +199,9 @@ export default function Dashboard() {
                         {appointment.status}
                       </Badge>
                     </div>
-                    <PlusCircle className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
-                );
-              })}
+                ))
+              )}
             </div>
             <Button className="w-full mt-6 bg-secondary text-primary hover:bg-primary hover:text-white border-none shadow-none font-semibold">
               <PlusCircle className="mr-2 h-4 w-4" /> Add Appointment
@@ -176,7 +210,6 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Quick Access Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Link href="/anamnesis" className="contents">
           <Card className="group cursor-pointer hover:shadow-lg transition-all border-none bg-white">
