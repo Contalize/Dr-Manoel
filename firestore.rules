@@ -1,16 +1,10 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Garante que apenas usuários autenticados acessem o banco
+    // Regra de Meio-Termo: Permite acesso total para qualquer usuário autenticado.
+    // Isso evita o erro de permissão em documentos que ainda não possuem o campo 'userId'.
     match /{document=**} {
       allow read, write: if request.auth != null;
-    }
-    
-    // Nível avançado: O farmacêutico só lê os pacientes da clínica dele
-    // Nota: Ajustado para a coleção 'patients' utilizada no projeto. 
-    // Certifique-se de que os documentos possuam o campo 'userId'.
-    match /patients/{patientId} {
-      allow read, write: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
     }
   }
 }
