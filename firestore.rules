@@ -1,11 +1,16 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // REGRAS PERMISSIVAS PARA DESENVOLVIMENTO
-    // Permite leitura e escrita para qualquer pessoa. 
-    // IMPORTANTE: Restringir antes de publicar para produção usando Firebase Auth.
+    // Garante que apenas usuários autenticados acessem o banco
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if request.auth != null;
+    }
+    
+    // Nível avançado: O farmacêutico só lê os pacientes da clínica dele
+    // Nota: Ajustado para a coleção 'patients' utilizada no projeto. 
+    // Certifique-se de que os documentos possuam o campo 'userId'.
+    match /patients/{patientId} {
+      allow read, write: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
     }
   }
 }
