@@ -1,8 +1,9 @@
+
 "use client"
 
 import { useState, useEffect } from "react";
 import { db } from "@/firebase/config";
-import { collection, onSnapshot, query, where, orderBy } from "firebase/firestore";
+import { collection, onSnapshot, query, where, orderBy, getDocs, limit } from "firebase/firestore";
 import { 
   Users, 
   CalendarCheck, 
@@ -11,7 +12,9 @@ import {
   FileText, 
   Clock,
   ShieldCheck,
-  Stethoscope
+  Stethoscope,
+  Wifi,
+  WifiOff
 } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
@@ -40,8 +43,21 @@ export default function Dashboard() {
   const [patientCount, setPatientCount] = useState(0);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [revenue, setRevenue] = useState(0);
+  const [dbStatus, setDbStatus] = useState<'online' | 'offline' | 'checking'>('checking');
 
   useEffect(() => {
+    // Check connection status
+    const checkConn = async () => {
+      try {
+        await getDocs(query(collection(db, "patients"), limit(1)));
+        setDbStatus('online');
+      } catch (err) {
+        console.error("Firebase connection error:", err);
+        setDbStatus('offline');
+      }
+    };
+    checkConn();
+
     const unsubscribePatients = onSnapshot(collection(db, "patients"), (snapshot) => {
       setPatientCount(snapshot.size);
     });
@@ -54,6 +70,9 @@ export default function Dashboard() {
     );
     const unsubscribeApps = onSnapshot(qAppointments, (snapshot) => {
       setAppointments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      console.error("Error fetching appointments:", error);
+      setDbStatus('offline');
     });
 
     const unsubscribeFinance = onSnapshot(collection(db, "transactions"), (snapshot) => {
@@ -72,7 +91,20 @@ export default function Dashboard() {
     <div className="space-y-8 pb-12">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-primary font-headline">Bem-vindo, Dr. Dupont</h1>
+          <div className="flex items-center gap-3 mb-1">
+            <h1 className="text-3xl font-bold text-primary font-headline">Bem-vindo, Dr. Dupont</h1>
+            <Badge 
+              variant="outline" 
+              className={cn(
+                "flex items-center gap-1.5 px-2 py-0.5 text-[10px] uppercase font-bold tracking-tighter border-none",
+                dbStatus === 'online' ? "bg-green-100 text-green-700" : 
+                dbStatus === 'offline' ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-500"
+              )}
+            >
+              {dbStatus === 'online' ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+              {dbStatus === 'online' ? "Sistema Online" : dbStatus === 'offline' ? "Erro de Conexão" : "Verificando..."}
+            </Badge>
+          </div>
           <p className="text-slate-500">Visão geral da clínica para hoje, {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}.</p>
         </div>
         <div className="flex gap-3">

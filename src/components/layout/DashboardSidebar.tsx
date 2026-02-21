@@ -1,3 +1,4 @@
+
 "use client"
 
 import Link from "next/link"
@@ -12,7 +13,8 @@ import {
   Settings,
   Leaf,
   ShieldCheck,
-  LogOut
+  LogOut,
+  Database
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { auth } from "@/firebase/config"
@@ -74,6 +76,13 @@ export function DashboardSidebar() {
       </nav>
 
       <div className="p-4 border-t border-white/10 space-y-2">
+        <Link
+          href="/test-db"
+          className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-all"
+        >
+          <Database className="mr-3 h-5 w-5 text-white/60" />
+          Diagnóstico de Banco
+        </Link>
         <Link
           href="/privacy"
           className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-all"
