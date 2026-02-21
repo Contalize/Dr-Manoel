@@ -1,8 +1,9 @@
+
 "use client"
 
 import { useState, useEffect } from "react";
 import { db } from "@/firebase/config";
-import { collection, onSnapshot, query, where, orderBy, getDocs, limit } from "firebase/firestore";
+import { collection, onSnapshot, query, where, limit, getDocs } from "firebase/firestore";
 import { 
   Users, 
   CalendarCheck, 
@@ -13,7 +14,10 @@ import {
   ShieldCheck,
   Wifi,
   WifiOff,
-  Stethoscope
+  Stethoscope,
+  Cake,
+  Gift,
+  ChevronRight
 } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
@@ -30,6 +34,8 @@ import {
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { isWithinInterval, addDays, parseISO, format, isSameDay } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const healthTrends = [
   { month: 'Jan', inflammatory: 6.2, sleep: 65 },
@@ -38,15 +44,25 @@ const healthTrends = [
   { month: 'Abr', inflammatory: 4.1, sleep: 75 },
 ];
 
+interface UpcomingBirthday {
+  id: string;
+  name: string;
+  birthDate: string;
+  isToday: boolean;
+  formattedDay: string;
+}
+
 export default function Dashboard() {
   const [patientCount, setPatientCount] = useState(0);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [revenue, setRevenue] = useState(0);
   const [dbStatus, setDbStatus] = useState<'online' | 'offline' | 'checking'>('checking');
   const [currentDate, setCurrentDate] = useState<string>("");
+  const [upcomingBirthdays, setUpcomingBirthdays] = useState<UpcomingBirthday[]>([]);
 
   useEffect(() => {
-    setCurrentDate(new Date().toLocaleDateString('pt-BR', { 
+    const now = new Date();
+    setCurrentDate(now.toLocaleDateString('pt-BR', { 
       day: '2-digit', 
       month: 'long', 
       year: 'numeric' 
@@ -58,18 +74,52 @@ export default function Dashboard() {
         await getDocs(q);
         setDbStatus('online');
       } catch (err) {
-        console.error("Firebase connection error:", err);
+        console.error("Erro de conexão Firebase:", err);
         setDbStatus('offline');
       }
     };
     checkConn();
 
+    // Monitoramento de Pacientes e Aniversariantes
     const unsubscribePatients = onSnapshot(collection(db, "patients"), (snapshot) => {
       setPatientCount(snapshot.size);
+      
+      const patientsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      const today = new Date();
+      const nextWeek = addDays(today, 7);
+      
+      const birthdays = patientsData.filter(p => {
+        if (!p.birthDate) return false;
+        const bday = parseISO(p.birthDate);
+        // Criar data de aniversário no ano atual para comparação
+        const bdayThisYear = new Date(today.getFullYear(), bday.getMonth(), bday.getDate());
+        
+        // Se o aniversário já passou este ano e estamos perto do final do ano, verificar ano seguinte
+        if (bdayThisYear < today && !isSameDay(bdayThisYear, today)) {
+          const bdayNextYear = new Date(today.getFullYear() + 1, bday.getMonth(), bday.getDate());
+          return isWithinInterval(bdayNextYear, { start: today, end: nextWeek });
+        }
+        
+        return isWithinInterval(bdayThisYear, { start: today, end: nextWeek }) || isSameDay(bdayThisYear, today);
+      }).map(p => {
+        const bday = parseISO(p.birthDate);
+        const bdayThisYear = new Date(today.getFullYear(), bday.getMonth(), bday.getDate());
+        return {
+          id: p.id,
+          name: p.name,
+          birthDate: p.birthDate,
+          isToday: isSameDay(bdayThisYear, today),
+          formattedDay: format(bdayThisYear, "dd 'de' MMMM", { locale: ptBR })
+        };
+      }).sort((a, b) => {
+        const dateA = parseISO(a.birthDate);
+        const dateB = parseISO(b.birthDate);
+        return dateA.getMonth() - dateB.getMonth() || dateA.getDate() - dateB.getDate();
+      });
+
+      setUpcomingBirthdays(birthdays);
     }, () => setDbStatus('offline'));
 
-    // Simplificamos a query para evitar a necessidade de índice composto (date + time)
-    // Filtramos por data no servidor e ordenaremos por hora no cliente.
     const todayStr = new Date().toISOString().split('T')[0];
     const qAppointments = query(
       collection(db, "appointments"), 
@@ -78,13 +128,8 @@ export default function Dashboard() {
     
     const unsubscribeApps = onSnapshot(qAppointments, (snapshot) => {
       const apps = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-      
-      // Ordenação em memória para garantir que os agendamentos apareçam em ordem cronológica
       apps.sort((a, b) => (a.time || "").localeCompare(b.time || ""));
-      
       setAppointments(apps);
-    }, (error) => {
-      console.error("Erro ao buscar agendamentos (pode ser falta de índice):", error);
     });
 
     const unsubscribeFinance = onSnapshot(collection(db, "transactions"), (snapshot) => {
@@ -169,7 +214,7 @@ export default function Dashboard() {
         <Card className="lg:col-span-2 border-none shadow-md">
           <CardHeader>
             <CardTitle className="text-primary font-headline">Evolução Clínica Média</CardTitle>
-            <CardDescription>Comparativo entre marcadores inflamatórios e qualidade do sono (PT-BR).</CardDescription>
+            <CardDescription>Comparativo entre marcadores inflamatórios e qualidade do sono.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[350px] w-full">
@@ -215,43 +260,84 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div>
-              <CardTitle className="text-primary font-headline">Agenda do Dia</CardTitle>
-              <CardDescription>Pacientes confirmados.</CardDescription>
-            </div>
-            <Link href="/calendar">
-              <Button variant="ghost" size="sm" className="text-primary hover:bg-primary/5">Ver Tudo</Button>
-            </Link>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              {appointments.length === 0 ? (
-                <p className="text-sm text-center text-slate-400 py-10 italic">Nenhum agendamento para hoje.</p>
-              ) : (
-                appointments.map((appointment) => (
-                  <div key={appointment.id} className="flex items-start gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer group">
-                    <div className="bg-primary/5 p-3 rounded-lg text-primary font-bold text-center min-w-[60px] group-hover:bg-primary group-hover:text-white transition-colors">
-                      <span className="text-[10px] uppercase block font-medium opacity-70">Hora</span>
-                      {appointment.time}
+        <div className="space-y-8">
+          <Card className="border-none shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle className="text-primary font-headline">Agenda do Dia</CardTitle>
+                <CardDescription>Pacientes confirmados.</CardDescription>
+              </div>
+              <Link href="/calendar">
+                <Button variant="ghost" size="sm" className="text-primary hover:bg-primary/5">Ver Tudo</Button>
+              </Link>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {appointments.length === 0 ? (
+                  <p className="text-sm text-center text-slate-400 py-6 italic">Nenhum agendamento para hoje.</p>
+                ) : (
+                  appointments.map((appointment) => (
+                    <div key={appointment.id} className="flex items-start gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer group">
+                      <div className="bg-primary/5 p-3 rounded-lg text-primary font-bold text-center min-w-[60px] group-hover:bg-primary group-hover:text-white transition-colors">
+                        <span className="text-[10px] uppercase block font-medium opacity-70">Hora</span>
+                        {appointment.time}
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-bold text-sm text-slate-800">{appointment.patientName}</h4>
+                        <p className="text-[11px] text-slate-500">{appointment.type}</p>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <h4 className="font-bold text-sm text-slate-800">{appointment.patientName}</h4>
-                      <p className="text-[11px] text-slate-500 mb-2">{appointment.type}</p>
-                      <Badge variant="outline" className={cn(
-                        "text-[9px] uppercase font-bold px-2 py-0",
-                        appointment.status === 'Confirmed' ? "text-emerald-600 border-emerald-600/20 bg-emerald-50" : "text-amber-600 border-amber-600/20 bg-amber-50"
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-md bg-white">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div>
+                <CardTitle className="text-primary font-headline flex items-center gap-2">
+                  <Cake className="h-5 w-5 text-accent" />
+                  Aniversariantes
+                </CardTitle>
+                <CardDescription>Próximos 7 dias.</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {upcomingBirthdays.length === 0 ? (
+                  <p className="text-sm text-center text-slate-400 py-6 italic">Nenhum aniversário nos próximos dias.</p>
+                ) : (
+                  upcomingBirthdays.map((patient) => (
+                    <div key={patient.id} className={cn(
+                      "flex items-center gap-3 p-3 rounded-xl border border-transparent transition-all",
+                      patient.isToday ? "bg-accent/10 border-accent/20" : "hover:bg-slate-50"
+                    )}>
+                      <div className={cn(
+                        "p-2 rounded-full",
+                        patient.isToday ? "bg-accent text-white" : "bg-slate-100 text-slate-500"
                       )}>
-                        {appointment.status === 'Confirmed' ? 'Confirmado' : appointment.status}
-                      </Badge>
+                        <Gift className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-bold text-xs text-slate-800 flex items-center gap-2">
+                          {patient.name}
+                          {patient.isToday && <Badge className="bg-accent text-[8px] h-4 py-0 uppercase">Hoje</Badge>}
+                        </h4>
+                        <p className="text-[10px] text-muted-foreground font-medium uppercase">{patient.formattedDay}</p>
+                      </div>
+                      <Link href={`/patients?search=${patient.name}`}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7">
+                          <ChevronRight className="h-4 w-4 text-slate-400" />
+                        </Button>
+                      </Link>
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
