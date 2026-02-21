@@ -1,8 +1,9 @@
+
 "use client"
 
 import { useState, useEffect } from "react";
 import { db } from "@/firebase/config";
-import { collection, onSnapshot, query } from "firebase/firestore";
+import { collection, onSnapshot, query, addDoc, serverTimestamp } from "firebase/firestore";
 import { Input } from "@/components/ui/input";
 import { 
   Table, 
@@ -20,7 +21,8 @@ import {
   Plus, 
   Filter,
   ArrowRightLeft,
-  ShieldCheck
+  ShieldCheck,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,8 +34,21 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { logAction } from "@/lib/audit";
+import { useToast } from "@/hooks/use-toast";
 
 interface Patient {
   id: string;
@@ -51,6 +66,21 @@ export default function PatientsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showSensitive, setShowSensitive] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
+
+  // Estados do Formulário
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    cpf: "",
+    phone: "",
+    birthDate: "",
+    bioAge: "",
+    gender: "Feminino",
+    lgpdConsent: false
+  });
 
   useEffect(() => {
     setMounted(true);
@@ -70,6 +100,63 @@ export default function PatientsPage() {
     setShowSensitive(newState);
     if (newState) {
       await logAction("VISUALIZACAO_DADOS_SENSIVEIS", "TODOS", { screen: "CRM_PACIENTES" });
+    }
+  };
+
+  const handleCreatePatient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.lgpdConsent) {
+      toast({
+        title: "Consentimento Obrigatório",
+        description: "É necessário o consentimento LGPD para prosseguir com o cadastro.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const birthDate = new Date(formData.birthDate);
+      const chronoAge = new Date().getFullYear() - birthDate.getFullYear();
+
+      const patientData = {
+        ...formData,
+        chronoAge,
+        bioAge: Number(formData.bioAge),
+        status: "active",
+        lastConsultation: new Date().toLocaleDateString('pt-BR'),
+        consentDate: new Date().toISOString(),
+        createdAt: serverTimestamp()
+      };
+
+      await addDoc(collection(db, "patients"), patientData);
+      await logAction("CRIAR_PACIENTE", "NOVO", { name: formData.name });
+
+      toast({
+        title: "Paciente Cadastrado",
+        description: `${formData.name} foi adicionado à base clínica com sucesso.`,
+      });
+
+      setIsDialogOpen(false);
+      setFormData({
+        name: "",
+        email: "",
+        cpf: "",
+        phone: "",
+        birthDate: "",
+        bioAge: "",
+        gender: "Feminino",
+        lgpdConsent: false
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Erro no Cadastro",
+        description: "Não foi possível salvar os dados. Verifique sua conexão.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -98,9 +185,122 @@ export default function PatientsPage() {
           </div>
           <p className="text-muted-foreground">Histórico clínico centralizado com criptografia e trilha de auditoria.</p>
         </div>
-        <Button className="bg-accent text-white hover:bg-accent/90 shadow-lg">
-          <Plus className="h-4 w-4 mr-2" /> Novo Registro Clínico
-        </Button>
+
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-accent text-white hover:bg-accent/90 shadow-lg">
+              <Plus className="h-4 w-4 mr-2" /> Novo Registro Clínico
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[500px]">
+            <form onSubmit={handleCreatePatient}>
+              <DialogHeader>
+                <DialogTitle className="text-primary font-headline text-2xl">Cadastro de Paciente</DialogTitle>
+                <DialogDescription>
+                  Insira os dados clínicos do paciente. Todos os campos são auditados.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="name">Nome Completo</Label>
+                  <Input 
+                    id="name" 
+                    value={formData.name} 
+                    onChange={(e) => setFormData({...formData, name: e.target.value})} 
+                    required 
+                    placeholder="Ex: Ana Silva"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="email">E-mail</Label>
+                    <Input 
+                      id="email" 
+                      type="email" 
+                      value={formData.email} 
+                      onChange={(e) => setFormData({...formData, email: e.target.value})} 
+                      required 
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="cpf">CPF</Label>
+                    <Input 
+                      id="cpf" 
+                      value={formData.cpf} 
+                      onChange={(e) => setFormData({...formData, cpf: e.target.value})} 
+                      required 
+                      placeholder="000.000.000-00"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="phone">Telefone</Label>
+                    <Input 
+                      id="phone" 
+                      value={formData.phone} 
+                      onChange={(e) => setFormData({...formData, phone: e.target.value})} 
+                      required 
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="birthDate">Data de Nascimento</Label>
+                    <Input 
+                      id="birthDate" 
+                      type="date" 
+                      value={formData.birthDate} 
+                      onChange={(e) => setFormData({...formData, birthDate: e.target.value})} 
+                      required 
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="gender">Gênero</Label>
+                    <Select value={formData.gender} onValueChange={(val) => setFormData({...formData, gender: val})}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Masculino">Masculino</SelectItem>
+                        <SelectItem value="Feminino">Feminino</SelectItem>
+                        <SelectItem value="Outro">Outro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="bioAge">Bio-Idade Estimada</Label>
+                    <Input 
+                      id="bioAge" 
+                      type="number" 
+                      value={formData.bioAge} 
+                      onChange={(e) => setFormData({...formData, bioAge: e.target.value})} 
+                      required 
+                    />
+                  </div>
+                </div>
+                <div className="flex items-start space-x-2 p-3 bg-secondary/20 rounded-lg">
+                  <Checkbox 
+                    id="consent" 
+                    checked={formData.lgpdConsent} 
+                    onCheckedChange={(checked) => setFormData({...formData, lgpdConsent: !!checked})} 
+                  />
+                  <div className="grid gap-1.5 leading-none">
+                    <label htmlFor="consent" className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                      Declaro que coletei o consentimento livre e esclarecido do paciente para tratamento de dados sensíveis conforme LGPD.
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="submit" className="bg-primary text-white w-full" disabled={isSubmitting}>
+                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                  Salvar Registro Clínico
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </header>
 
       <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-border">
