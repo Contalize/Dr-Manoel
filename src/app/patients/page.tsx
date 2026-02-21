@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect, useMemo } from "react";
@@ -124,10 +125,18 @@ export default function PatientsPage() {
 
     setIsSubmitting(true);
     try {
+      const finalBioAge = Number(formData.bioAge) || chronoAgeCalculated;
+      
       const patientData = {
-        ...formData,
+        name: formData.name,
+        email: formData.email,
+        cpf: formData.cpf,
+        phone: formData.phone,
+        birthDate: formData.birthDate,
+        gender: formData.gender,
+        lgpdConsent: formData.lgpdConsent,
         chronoAge: chronoAgeCalculated,
-        bioAge: Number(formData.bioAge) || chronoAgeCalculated,
+        bioAge: finalBioAge,
         status: "active",
         lastConsultation: new Date().toLocaleDateString('pt-BR'),
         consentDate: new Date().toISOString(),
@@ -202,7 +211,7 @@ export default function PatientsPage() {
               <DialogHeader>
                 <DialogTitle className="text-primary font-headline text-2xl">Cadastro de Paciente</DialogTitle>
                 <DialogDescription>
-                  Preencha os dados clínicos. A idade cronológica é automática.
+                  Preencha os dados clínicos. A idade cronológica e bio-idade são automáticas por padrão.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -241,8 +250,14 @@ export default function PatientsPage() {
                     <Input value={`${chronoAgeCalculated} anos`} disabled className="bg-secondary/20 font-bold" />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="bioAge">Bio-Idade (Avaliação)</Label>
-                    <Input id="bioAge" type="number" placeholder={chronoAgeCalculated.toString()} value={formData.bioAge} onChange={(e) => setFormData({...formData, bioAge: e.target.value})} required />
+                    <Label htmlFor="bioAge">Bio-Idade (Opcional)</Label>
+                    <Input 
+                      id="bioAge" 
+                      type="number" 
+                      placeholder={chronoAgeCalculated.toString()} 
+                      value={formData.bioAge} 
+                      onChange={(e) => setFormData({...formData, bioAge: e.target.value})} 
+                    />
                   </div>
                 </div>
                 <div className="flex items-start space-x-2 p-3 bg-secondary/10 rounded-lg">
@@ -301,40 +316,51 @@ export default function PatientsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredPatients.map((patient) => (
-              <TableRow key={patient.id} className="hover:bg-primary/5 cursor-pointer">
-                <TableCell>
-                  <div className="flex flex-col">
-                    <span className="font-bold">{patient.name}</span>
-                    <span className="text-xs text-muted-foreground">{patient.email}</span>
-                  </div>
-                </TableCell>
-                <TableCell className="font-mono text-xs">{maskCPF(patient.cpf)}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <span>{patient.chronoAge}</span>
-                    <ArrowRightLeft className="h-3 w-3 text-muted-foreground" />
-                    <span className={cn(
-                      "font-bold",
-                      patient.bioAge < patient.chronoAge ? "text-emerald-600" : "text-red-600"
-                    )}>{patient.bioAge}</span>
-                  </div>
-                </TableCell>
-                <TableCell className="text-sm">{patient.lastConsultation}</TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm"><MoreHorizontal className="h-4 w-4" /></Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem>Ver Prontuário</DropdownMenuItem>
-                      <DropdownMenuItem>Nova Anamnese</DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-600">Remover Registro</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+            {filteredPatients.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-10 text-muted-foreground italic">
+                  Nenhum paciente encontrado.
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              filteredPatients.map((patient) => (
+                <TableRow key={patient.id} className="hover:bg-primary/5 cursor-pointer">
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="font-bold text-slate-900">{patient.name}</span>
+                      <span className="text-xs text-muted-foreground">{patient.email}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="font-mono text-xs">{maskCPF(patient.cpf)}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-600 font-medium">{patient.chronoAge}</span>
+                      <ArrowRightLeft className="h-3 w-3 text-muted-foreground" />
+                      <span className={cn(
+                        "font-bold",
+                        patient.bioAge < patient.chronoAge ? "text-emerald-600" : 
+                        patient.bioAge > patient.chronoAge ? "text-red-600" : "text-slate-900"
+                      )}>{patient.bioAge}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-sm font-medium text-slate-600">{patient.lastConsultation}</TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm"><MoreHorizontal className="h-4 w-4" /></Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Ações Clínicas</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem>Ver Prontuário</DropdownMenuItem>
+                        <DropdownMenuItem>Nova Anamnese</DropdownMenuItem>
+                        <DropdownMenuItem className="text-red-600">Remover Registro</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>

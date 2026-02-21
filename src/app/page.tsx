@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from "react";
@@ -138,6 +139,7 @@ export default function Dashboard() {
     
     const unsubscribeApps = onSnapshot(qAppointments, (snapshot) => {
       const apps = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      // Ordenação manual no cliente para evitar erro de índice composto
       apps.sort((a, b) => (a.time || "").localeCompare(b.time || ""));
       setAppointments(apps);
     });
@@ -198,7 +200,7 @@ export default function Dashboard() {
           trend={{ value: "12%", positive: true }} 
         />
         <StatCard 
-          title="Agendamentos" 
+          title="Agendamentos Hoje" 
           value={appointments.length} 
           icon={CalendarCheck} 
         />
@@ -376,7 +378,7 @@ export default function Dashboard() {
                 <FileText className="h-6 w-6 text-accent group-hover:text-white" />
               </div>
               <div>
-                <h3 className="font-bold text-primary">Inteligência de Planejamento</h3>
+                <h3 className="font-bold text-primary">Planejador IA</h3>
                 <p className="text-xs text-slate-500">Racional clínico IA / ANVISA</p>
               </div>
             </CardContent>
