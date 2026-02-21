@@ -4,7 +4,7 @@ import { DashboardSidebar } from '@/components/layout/DashboardSidebar';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'PharmaZen Platform | Clínica Integrativa',
+  title: 'Manoel da Farmacia Platform | Clínica Integrativa',
   description: 'Gestão inteligente para clínicas farmacêuticas integrativas.',
 };
 

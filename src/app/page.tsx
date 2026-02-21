@@ -11,9 +11,9 @@ import {
   FileText, 
   Clock,
   ShieldCheck,
-  Stethoscope,
   Wifi,
-  WifiOff
+  WifiOff,
+  Stethoscope
 } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
@@ -46,17 +46,16 @@ export default function Dashboard() {
   const [currentDate, setCurrentDate] = useState<string>("");
 
   useEffect(() => {
-    // Evitar erro de hidratação com data dinâmica
     setCurrentDate(new Date().toLocaleDateString('pt-BR', { 
       day: '2-digit', 
       month: 'long', 
       year: 'numeric' 
     }));
 
-    // Verificação de conexão
     const checkConn = async () => {
       try {
-        await getDocs(query(collection(db, "patients"), limit(1)));
+        const q = query(collection(db, "patients"), limit(1));
+        await getDocs(q);
         setDbStatus('online');
       } catch (err) {
         console.error("Firebase connection error:", err);
@@ -67,7 +66,7 @@ export default function Dashboard() {
 
     const unsubscribePatients = onSnapshot(collection(db, "patients"), (snapshot) => {
       setPatientCount(snapshot.size);
-    });
+    }, () => setDbStatus('offline'));
 
     const today = new Date().toISOString().split('T')[0];
     const qAppointments = query(
@@ -79,7 +78,6 @@ export default function Dashboard() {
       setAppointments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     }, (error) => {
       console.error("Error fetching appointments:", error);
-      setDbStatus('offline');
     });
 
     const unsubscribeFinance = onSnapshot(collection(db, "transactions"), (snapshot) => {

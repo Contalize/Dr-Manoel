@@ -125,7 +125,7 @@ export default function TestDBPage() {
       </Card>
       
       <p className="text-center text-xs text-muted-foreground mt-8">
-        PharmaZen Platform • LGPD Compliant Connectivity Layer
+        Manoel da Farmacia Platform • LGPD Compliant Connectivity Layer
       </p>
     </div>
   );

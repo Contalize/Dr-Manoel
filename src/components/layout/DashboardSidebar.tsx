@@ -48,7 +48,7 @@ export function DashboardSidebar() {
         <div className="bg-white rounded-lg p-2">
           <Leaf className="h-6 w-6 text-primary" />
         </div>
-        <h1 className="text-xl font-headline font-bold tracking-tight text-white">PharmaZen</h1>
+        <h1 className="text-xl font-headline font-bold tracking-tight text-white">Manoel da Farmacia</h1>
       </div>
       
       <nav className="flex-1 px-4 space-y-1 mt-4">
