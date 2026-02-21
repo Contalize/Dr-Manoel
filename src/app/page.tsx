@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from "react";
@@ -44,9 +43,17 @@ export default function Dashboard() {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [revenue, setRevenue] = useState(0);
   const [dbStatus, setDbStatus] = useState<'online' | 'offline' | 'checking'>('checking');
+  const [currentDate, setCurrentDate] = useState<string>("");
 
   useEffect(() => {
-    // Check connection status
+    // Evitar erro de hidratação com data dinâmica
+    setCurrentDate(new Date().toLocaleDateString('pt-BR', { 
+      day: '2-digit', 
+      month: 'long', 
+      year: 'numeric' 
+    }));
+
+    // Verificação de conexão
     const checkConn = async () => {
       try {
         await getDocs(query(collection(db, "patients"), limit(1)));
@@ -105,7 +112,9 @@ export default function Dashboard() {
               {dbStatus === 'online' ? "Sistema Online" : dbStatus === 'offline' ? "Erro de Conexão" : "Verificando..."}
             </Badge>
           </div>
-          <p className="text-slate-500">Visão geral da clínica para hoje, {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}.</p>
+          <p className="text-slate-500">
+            Visão geral da clínica para hoje, {currentDate || "carregando data..."}.
+          </p>
         </div>
         <div className="flex gap-3">
           <Link href="/calendar">

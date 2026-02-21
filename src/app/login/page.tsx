@@ -25,7 +25,7 @@ export default function LoginPage() {
       await signInWithEmailAndPassword(auth, email, password)
       toast({
         title: "Acesso Autorizado",
-        description: "Bem-vindo à plataforma clínica PharmaZen.",
+        description: "Bem-vindo à plataforma clínica Manoel da Famarcia.",
       })
       router.push("/")
     } catch (error: any) {

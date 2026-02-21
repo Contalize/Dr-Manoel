@@ -1,4 +1,4 @@
-# **App Name**: PharmaZen Platform
+# **App Name**: Manoel da Farmacia Platform
 
 ## Core Features:
 

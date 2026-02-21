@@ -4,8 +4,8 @@ import { DashboardSidebar } from '@/components/layout/DashboardSidebar';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'PharmaZen Platform | Integrative Clinic',
-  description: 'Smart management for integrative pharmaceutical clinics.',
+  title: 'PharmaZen Platform | Clínica Integrativa',
+  description: 'Gestão inteligente para clínicas farmacêuticas integrativas.',
 };
 
 export default function RootLayout({
@@ -14,7 +14,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="pt-BR">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
