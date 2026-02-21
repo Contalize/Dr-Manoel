@@ -120,7 +120,7 @@ export default function TestDBPage() {
                   <h4 className="text-sm font-bold uppercase text-amber-800">Como corrigir agora:</h4>
                 </div>
                 <ol className="text-sm space-y-3 text-amber-900 list-decimal list-inside">
-                  <li>No Console do Firebase, vá em <strong>Build > Firestore Database</strong>.</li>
+                  <li>No Console do Firebase, vá em <strong>Build &gt; Firestore Database</strong>.</li>
                   <li>Clique na aba <strong>Rules</strong> (Regras).</li>
                   <li>Substitua <code>allow read, write: if false;</code> por <code>allow read, write: if true;</code>.</li>
                   <li>Clique em <strong>Publish</strong> (Publicar) e aguarde 1 minuto.</li>
