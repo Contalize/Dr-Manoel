@@ -97,7 +97,7 @@ export default function Dashboard() {
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 mb-1">
-            <h1 className="text-3xl font-bold text-primary font-headline">Bem-vindo, Dr. Dupont</h1>
+            <h1 className="text-3xl font-bold text-primary font-headline">Bem-vindo, Dr. Manoel</h1>
             <Badge 
               variant="outline" 
               className={cn(

@@ -3,7 +3,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // REGRAS PERMISSIVAS PARA DESENVOLVIMENTO
     // Permite leitura e escrita para qualquer pessoa. 
-    // IMPORTANTE: Restringir antes de publicar para produção.
+    // IMPORTANTE: Restringir antes de publicar para produção usando Firebase Auth.
     match /{document=**} {
       allow read, write: if true;
     }

@@ -6,7 +6,7 @@ import { collection, getDocs, limit, query } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, CheckCircle2, XCircle, RefreshCw, Database, AlertTriangle, ExternalLink } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, RefreshCw, Database, AlertTriangle, ExternalLink, Code } from "lucide-react";
 import Link from "next/link";
 
 export default function TestDBPage() {
@@ -28,7 +28,7 @@ export default function TestDBPage() {
       // Tradução amigável para erros comuns
       let friendlyError = err.message;
       if (err.code === 'permission-denied') {
-        friendlyError = "Permissões insuficientes. Você precisa ativar o Firestore no Console do Firebase e publicar as regras de segurança.";
+        friendlyError = "Permissões insuficientes. Suas regras atuais estão bloqueando o acesso (allow read, write: if false).";
       }
       setError(friendlyError || 'Erro desconhecido ao conectar ao Firestore');
       setStatus('error');
@@ -115,16 +115,19 @@ export default function TestDBPage() {
               </div>
               
               <div className="space-y-4 p-4 bg-amber-50 rounded-xl border border-amber-100">
-                <h4 className="text-sm font-bold uppercase text-amber-800">Próximos passos para resolver:</h4>
+                <div className="flex items-center gap-2 mb-2">
+                  <Code className="h-4 w-4 text-amber-800" />
+                  <h4 className="text-sm font-bold uppercase text-amber-800">Como corrigir agora:</h4>
+                </div>
                 <ol className="text-sm space-y-3 text-amber-900 list-decimal list-inside">
-                  <li>Acesse o <strong>Console do Firebase</strong> no seu navegador.</li>
-                  <li>Vá em <strong>Build &gt; Firestore Database</strong>.</li>
-                  <li>Se solicitado, clique em <strong>Criar Banco de Dados</strong>.</li>
-                  <li>Na aba <strong>Rules</strong>, certifique-se de que as regras permitem acesso (ou publique as regras enviadas pelo Studio).</li>
+                  <li>No Console do Firebase, vá em <strong>Build > Firestore Database</strong>.</li>
+                  <li>Clique na aba <strong>Rules</strong> (Regras).</li>
+                  <li>Substitua <code>allow read, write: if false;</code> por <code>allow read, write: if true;</code>.</li>
+                  <li>Clique em <strong>Publish</strong> (Publicar) e aguarde 1 minuto.</li>
                 </ol>
-                <Button variant="outline" className="w-full border-amber-200 text-amber-800 hover:bg-amber-100 gap-2" asChild>
+                <Button variant="outline" className="w-full border-amber-200 text-amber-800 hover:bg-amber-100 gap-2 mt-2" asChild>
                   <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer">
-                    Abrir Console Firebase <ExternalLink className="h-3 w-3" />
+                    Abrir Editor de Regras <ExternalLink className="h-3 w-3" />
                   </a>
                 </Button>
               </div>
