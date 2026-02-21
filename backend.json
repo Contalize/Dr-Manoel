@@ -15,26 +15,30 @@
       "fields": {
         "name": { "type": "string", "description": "Nome completo" },
         "email": { "type": "string" },
-        "cpf": { "type": "string", "description": "CPF (Criptografado em repouso via lógica de app)" },
+        "cpf": { "type": "string", "description": "CPF (Criptografado em repouso)" },
         "phone": { "type": "string" },
         "birthDate": { "type": "string" },
         "chronoAge": { "type": "number" },
         "bioAge": { "type": "number" },
         "gender": { "type": "string" },
         "status": { "type": "string" },
-        "lgpdConsent": { "type": "boolean", "description": "Consentimento explícito coletado" },
+        "lgpdConsent": { "type": "boolean" },
         "consentDate": { "type": "string" },
-        "lastConsultation": { "type": "string" }
+        "lastConsultation": { "type": "string" },
+        "medicationHistory": { "type": "array", "description": "Histórico de medicamentos salvos" }
       }
     },
-    "medications": {
-      "description": "Base de dados curada de medicamentos e fitoterápicos.",
+    "medicamentos_referencia": {
+      "description": "Base mestra de medicamentos sincronizada (ANVISA/Integrativa).",
       "fields": {
-        "name": { "type": "string" },
-        "activeIngredient": { "type": "string" },
-        "category": { "type": "string" },
-        "contraindications": { "type": "array" },
-        "leaflets": { "type": "string" }
+        "nome_comercial": { "type": "string" },
+        "principio_ativo": { "type": "string" },
+        "concentracao": { "type": "string" },
+        "categoria": { "type": "string", "description": "Alopático, Fitoterápico, Suplemento" },
+        "bula_resumida": { "type": "string" },
+        "url_bula_anvisa": { "type": "string" },
+        "contraindicacoes": { "type": "array" },
+        "updated_at": { "type": "timestamp" }
       }
     },
     "audit_logs": {
