@@ -1,7 +1,6 @@
-
 "use client"
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { db } from "@/firebase/config";
 import { collection, onSnapshot, query, addDoc, serverTimestamp } from "firebase/firestore";
 import { Input } from "@/components/ui/input";
@@ -22,7 +21,8 @@ import {
   Filter,
   ArrowRightLeft,
   ShieldCheck,
-  Loader2
+  Loader2,
+  CalendarDays
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -49,6 +49,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { logAction } from "@/lib/audit";
 import { useToast } from "@/hooks/use-toast";
+import { differenceInYears, parseISO } from "date-fns";
 
 interface Patient {
   id: string;
@@ -82,6 +83,16 @@ export default function PatientsPage() {
     lgpdConsent: false
   });
 
+  // Cálculo automático da idade cronológica
+  const chronoAgeCalculated = useMemo(() => {
+    if (!formData.birthDate) return 0;
+    try {
+      return differenceInYears(new Date(), parseISO(formData.birthDate));
+    } catch (e) {
+      return 0;
+    }
+  }, [formData.birthDate]);
+
   useEffect(() => {
     setMounted(true);
     const q = query(collection(db, "patients"));
@@ -99,7 +110,7 @@ export default function PatientsPage() {
     const newState = !showSensitive;
     setShowSensitive(newState);
     if (newState) {
-      await logAction("VISUALIZACAO_DADOS_SENSIVEIS", "TODOS", { screen: "CRM_PACIENTES" });
+      await logAction("VISUALIZACAO_DADOS_SENSIVEIS", "TODOS", { tela: "CRM_PACIENTES" });
     }
   };
 
@@ -116,13 +127,10 @@ export default function PatientsPage() {
 
     setIsSubmitting(true);
     try {
-      const birthDate = new Date(formData.birthDate);
-      const chronoAge = new Date().getFullYear() - birthDate.getFullYear();
-
       const patientData = {
         ...formData,
-        chronoAge,
-        bioAge: Number(formData.bioAge),
+        chronoAge: chronoAgeCalculated,
+        bioAge: Number(formData.bioAge) || chronoAgeCalculated,
         status: "active",
         lastConsultation: new Date().toLocaleDateString('pt-BR'),
         consentDate: new Date().toISOString(),
@@ -130,7 +138,7 @@ export default function PatientsPage() {
       };
 
       await addDoc(collection(db, "patients"), patientData);
-      await logAction("CRIAR_PACIENTE", "NOVO", { name: formData.name });
+      await logAction("CRIAR_PACIENTE", "NOVO", { nome: formData.name });
 
       toast({
         title: "Paciente Cadastrado",
@@ -162,7 +170,8 @@ export default function PatientsPage() {
 
   const filteredPatients = patients.filter(p => 
     p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    p.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.cpf?.includes(searchTerm)
   );
 
   const maskCPF = (cpf: string) => {
@@ -197,7 +206,7 @@ export default function PatientsPage() {
               <DialogHeader>
                 <DialogTitle className="text-primary font-headline text-2xl">Cadastro de Paciente</DialogTitle>
                 <DialogDescription>
-                  Insira os dados clínicos do paciente. Todos os campos são auditados.
+                  Insira os dados clínicos. A idade cronológica será calculada automaticamente.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -245,39 +254,53 @@ export default function PatientsPage() {
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="birthDate">Data de Nascimento</Label>
-                    <Input 
-                      id="birthDate" 
-                      type="date" 
-                      value={formData.birthDate} 
-                      onChange={(e) => setFormData({...formData, birthDate: e.target.value})} 
-                      required 
-                    />
+                    <div className="relative">
+                      <Input 
+                        id="birthDate" 
+                        type="date" 
+                        value={formData.birthDate} 
+                        onChange={(e) => setFormData({...formData, birthDate: e.target.value})} 
+                        required 
+                      />
+                    </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4 items-end">
                   <div className="grid gap-2">
-                    <Label htmlFor="gender">Gênero</Label>
-                    <Select value={formData.gender} onValueChange={(val) => setFormData({...formData, gender: val})}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Masculino">Masculino</SelectItem>
-                        <SelectItem value="Feminino">Feminino</SelectItem>
-                        <SelectItem value="Outro">Outro</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="flex items-center justify-between">
+                      <Label>Idade Cronológica</Label>
+                      <Badge variant="secondary" className="text-[10px]">{chronoAgeCalculated} anos</Badge>
+                    </div>
+                    <Input 
+                      value={`${chronoAgeCalculated} anos`} 
+                      disabled 
+                      className="bg-secondary/20 border-none font-bold"
+                    />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="bioAge">Bio-Idade Estimada</Label>
+                    <Label htmlFor="bioAge">Bio-Idade (Avaliação)</Label>
                     <Input 
                       id="bioAge" 
                       type="number" 
+                      placeholder={chronoAgeCalculated.toString()}
                       value={formData.bioAge} 
                       onChange={(e) => setFormData({...formData, bioAge: e.target.value})} 
                       required 
                     />
                   </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="gender">Gênero</Label>
+                  <Select value={formData.gender} onValueChange={(val) => setFormData({...formData, gender: val})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Masculino">Masculino</SelectItem>
+                      <SelectItem value="Feminino">Feminino</SelectItem>
+                      <SelectItem value="Outro">Outro</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="flex items-start space-x-2 p-3 bg-secondary/20 rounded-lg">
                   <Checkbox 
