@@ -68,16 +68,23 @@ export default function Dashboard() {
       setPatientCount(snapshot.size);
     }, () => setDbStatus('offline'));
 
-    const today = new Date().toISOString().split('T')[0];
+    // Simplificamos a query para evitar a necessidade de índice composto (date + time)
+    // Filtramos por data no servidor e ordenaremos por hora no cliente.
+    const todayStr = new Date().toISOString().split('T')[0];
     const qAppointments = query(
       collection(db, "appointments"), 
-      where("date", "==", today),
-      orderBy("time", "asc")
+      where("date", "==", todayStr)
     );
+    
     const unsubscribeApps = onSnapshot(qAppointments, (snapshot) => {
-      setAppointments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const apps = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      
+      // Ordenação em memória para garantir que os agendamentos apareçam em ordem cronológica
+      apps.sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+      
+      setAppointments(apps);
     }, (error) => {
-      console.error("Error fetching appointments:", error);
+      console.error("Erro ao buscar agendamentos (pode ser falta de índice):", error);
     });
 
     const unsubscribeFinance = onSnapshot(collection(db, "transactions"), (snapshot) => {
