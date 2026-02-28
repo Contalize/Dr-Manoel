@@ -3,6 +3,7 @@
 import * as React from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { DayPicker } from "react-day-picker"
+import "react-day-picker/dist/style.css"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
@@ -31,10 +32,10 @@ function Calendar({
         ),
         nav_button_previous: "absolute left-1",
         nav_button_next: "absolute right-1",
-        table: "w-full border-collapse space-y-1",
-        head_row: "flex justify-between mb-2",
+        table: "w-full border-collapse",
+        head_row: "flex w-full justify-between mb-2",
         head_cell: "text-muted-foreground rounded-md w-9 font-bold text-[0.7rem] uppercase tracking-tighter",
-        row: "flex w-full mt-1 justify-between",
+        row: "flex w-full mt-2 justify-between",
         cell: cn(
           "relative p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-accent/20 rounded-md transition-all",
           props.mode === "range"
@@ -43,7 +44,7 @@ function Calendar({
         ),
         day: cn(
           buttonVariants({ variant: "ghost" }),
-          "h-9 w-9 p-0 font-medium aria-selected:opacity-100 hover:bg-primary/10"
+          "h-9 w-9 p-0 font-normal aria-selected:opacity-100 hover:bg-primary/10"
         ),
         day_range_start: "day-range-start",
         day_range_end: "day-range-end",
@@ -59,11 +60,11 @@ function Calendar({
         ...classNames,
       }}
       components={{
-        IconLeft: ({ className, ...props }) => (
-          <ChevronLeft className={cn("h-4 w-4 text-primary", className)} {...props} />
+        IconLeft: () => (
+          <ChevronLeft className="h-4 w-4 text-primary" />
         ),
-        IconRight: ({ className, ...props }) => (
-          <ChevronRight className={cn("h-4 w-4 text-primary", className)} {...props} />
+        IconRight: () => (
+          <ChevronRight className="h-4 w-4 text-primary" />
         ),
       }}
       {...props}
