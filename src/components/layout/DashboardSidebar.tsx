@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState } from "react"
@@ -33,6 +32,7 @@ const navigation = [
   { name: 'Anamnese', href: '/anamnesis', icon: Stethoscope },
   { name: 'Protocolos', href: '/planner', icon: ClipboardList },
   { name: 'Financeiro', href: '/finance', icon: Wallet },
+  { name: 'Configurações', href: '/settings', icon: Settings },
 ]
 
 export function DashboardSidebar() {
