@@ -34,7 +34,7 @@ import {
   FormLabel,
   FormMessage,
   FormDescription,
-} from "@/form"
+} from "@/components/ui/form"
 import {
   Popover,
   PopoverContent,
