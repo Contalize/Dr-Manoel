@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect, useMemo } from "react";
@@ -13,7 +12,7 @@ import {
   doc, 
   where 
 } from "firebase/firestore";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { 
   Table, 
@@ -33,15 +32,12 @@ import {
   Loader2,
   ArrowRightLeft,
   User,
-  Mail,
-  Fingerprint,
   Pencil,
   Archive,
   UserCircle,
-  History,
+  History as HistoryIcon,
   Pill,
   MessageCircle,
-  Filter,
   CheckCircle2,
   Clock
 } from "lucide-react";
@@ -52,13 +48,11 @@ import {
   DropdownMenuContent, 
   DropdownMenuItem, 
   DropdownMenuLabel, 
-  DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -98,7 +92,6 @@ export default function PatientsPage() {
   const [editingPatientId, setEditingPatientId] = useState<string | null>(null);
   
   const { toast } = useToast();
-  const router = useRouter();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -242,7 +235,6 @@ export default function PatientsPage() {
 
   return (
     <div className="space-y-4 pb-12">
-      {/* Header Compacto */}
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="mt-8 md:mt-0">
           <h1 className="text-xl font-bold text-primary font-headline flex items-center gap-2">
@@ -330,7 +322,6 @@ export default function PatientsPage() {
         </div>
       </header>
 
-      {/* Barra de Ferramentas e Filtros Clínicos */}
       <div className="flex flex-col sm:flex-row gap-2 justify-between items-center bg-white p-2 rounded-lg shadow-sm border border-slate-100">
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <div className="relative w-full sm:w-64">
@@ -372,7 +363,6 @@ export default function PatientsPage() {
         </div>
       </div>
 
-      {/* Data Grid de Alta Densidade (Desktop) */}
       <div className="hidden md:block bg-white rounded-lg shadow-sm overflow-hidden border border-slate-100">
         <Table>
           <TableHeader className="bg-secondary/5">
@@ -433,27 +423,33 @@ export default function PatientsPage() {
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:bg-primary/10" onClick={() => router.push(`/patients/${p.id}`)}>
-                              <UserCircle className="h-4 w-4" />
-                            </Button>
+                            <Link href={`/patients/${p.id}`} prefetch={true}>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:bg-primary/10">
+                                <UserCircle className="h-4 w-4" />
+                              </Button>
+                            </Link>
                           </TooltipTrigger>
                           <TooltipContent><p className="text-[10px]">Prontuário</p></TooltipContent>
                         </Tooltip>
 
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600 hover:bg-emerald-50" onClick={() => router.push(`/patients/${p.id}?tab=evolution`)}>
-                              <History className="h-4 w-4" />
-                            </Button>
+                            <Link href={`/patients/${p.id}?tab=evolution`} prefetch={true}>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600 hover:bg-emerald-50">
+                                <HistoryIcon className="h-4 w-4" />
+                              </Button>
+                            </Link>
                           </TooltipTrigger>
                           <TooltipContent><p className="text-[10px]">Evolução</p></TooltipContent>
                         </Tooltip>
 
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-accent hover:bg-accent/10" onClick={() => router.push(`/patients/${p.id}?tab=prescriptions`)}>
-                              <Pill className="h-4 w-4" />
-                            </Button>
+                            <Link href={`/patients/${p.id}?tab=prescriptions`} prefetch={true}>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-accent hover:bg-accent/10">
+                                <Pill className="h-4 w-4" />
+                              </Button>
+                            </Link>
                           </TooltipTrigger>
                           <TooltipContent><p className="text-[10px]">Receita</p></TooltipContent>
                         </Tooltip>
@@ -491,16 +487,15 @@ export default function PatientsPage() {
         </Table>
       </div>
 
-      {/* Mobile-First Action Cards (Mobile View) */}
       <div className="md:hidden space-y-3">
         {filteredPatients.map((p) => (
           <Card key={p.id} className="border-none shadow-sm bg-white overflow-hidden">
             <CardContent className="p-3 space-y-3">
               <div className="flex justify-between items-start">
                 <div className="flex gap-2">
-                  <div className="bg-primary/10 p-2 rounded-lg" onClick={() => router.push(`/patients/${p.id}`)}>
+                  <Link href={`/patients/${p.id}`} className="bg-primary/10 p-2 rounded-lg" prefetch={true}>
                     <User className="h-4 w-4 text-primary" />
-                  </div>
+                  </Link>
                   <div>
                     <h3 className="font-bold text-slate-900 text-sm leading-tight">{p.name}</h3>
                     <p className="text-[10px] text-muted-foreground">{p.email}</p>
@@ -521,12 +516,16 @@ export default function PatientsPage() {
               </div>
 
               <div className="flex items-center justify-between gap-1">
-                <Button size="sm" variant="secondary" className="h-8 flex-1 text-[10px] font-bold gap-1" onClick={() => router.push(`/patients/${p.id}`)}>
-                  <UserCircle className="h-3 w-3" /> PRONTUÁRIO
-                </Button>
-                <Button size="sm" variant="outline" className="h-8 flex-1 text-[10px] font-bold gap-1 border-primary/20 text-primary" onClick={() => router.push(`/patients/${p.id}?tab=evolution`)}>
-                  <History className="h-3 w-3" /> EVOLUÇÃO
-                </Button>
+                <Link href={`/patients/${p.id}`} className="flex-1" prefetch={true}>
+                  <Button size="sm" variant="secondary" className="h-8 w-full text-[10px] font-bold gap-1">
+                    <UserCircle className="h-3 w-3" /> PRONTUÁRIO
+                  </Button>
+                </Link>
+                <Link href={`/patients/${p.id}?tab=evolution`} className="flex-1" prefetch={true}>
+                  <Button size="sm" variant="outline" className="h-8 w-full text-[10px] font-bold gap-1 border-primary/20 text-primary">
+                    <HistoryIcon className="h-3 w-3" /> EVOLUÇÃO
+                  </Button>
+                </Link>
                 <Button size="sm" variant="ghost" className="h-8 w-10 p-0 text-blue-500">
                   <MessageCircle className="h-4 w-4" />
                 </Button>

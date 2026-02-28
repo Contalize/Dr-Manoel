@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect, use } from "react";
@@ -13,6 +12,7 @@ import {
   addDoc, 
   serverTimestamp 
 } from "firebase/firestore";
+import Link from "next/link";
 import { 
   Card, 
   CardHeader, 
@@ -91,14 +91,12 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
-  // Estados para novas entradas
   const [newEvolution, setNewEvolution] = useState({ type: "Medicação", description: "" });
   const [evolutionOpen, setEvolutionOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
 
-    // Busca Dados do Paciente
     const fetchPatient = async () => {
       try {
         const docRef = doc(db, "patients", id);
@@ -113,7 +111,6 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
       }
     };
 
-    // Listeners em tempo real para Evoluções
     const qEvol = query(
       collection(db, "evolutions"), 
       where("patientId", "==", id)
@@ -126,11 +123,8 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
         return timeB - timeA;
       });
       setEvolutions(data);
-    }, (error) => {
-      console.error("Erro no listener de evoluções:", error);
     });
 
-    // Listeners para Prescrições
     const qPresc = query(
       collection(db, "prescriptions"), 
       where("patientId", "==", id)
@@ -143,8 +137,6 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
         return timeB - timeA;
       });
       setPrescriptions(data);
-    }, (error) => {
-      console.error("Erro no listener de prescrições:", error);
     });
 
     fetchPatient();
@@ -181,7 +173,6 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-20">
-      {/* Header do Prontuário */}
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mt-12 md:mt-0">
         <div className="flex items-center gap-4">
           <div className="bg-primary/10 p-4 rounded-2xl">
@@ -393,7 +384,9 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
               <Stethoscope className="h-16 w-16 text-primary/20 mx-auto" />
               <h3 className="text-xl font-bold text-primary">Iniciar Avaliação Integrativa</h3>
               <p className="text-muted-foreground">O módulo de avaliação clínica SOAP está integrado.</p>
-              <Button onClick={() => window.location.href='/anamnesis'}>Ir para Atendimento</Button>
+              <Link href="/anamnesis" prefetch={true}>
+                <Button>Ir para Atendimento</Button>
+              </Link>
             </CardContent>
           </Card>
         </TabsContent>

@@ -15,8 +15,7 @@ import {
   ShieldCheck,
   LogOut,
   Database,
-  Menu,
-  X
+  Menu
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { auth } from "@/firebase/config"
@@ -47,6 +46,30 @@ export function DashboardSidebar() {
 
   if (pathname === "/login") return null
 
+  const SidebarLink = ({ item }: { item: typeof navigation[0] }) => {
+    const isActive = pathname === item.href
+    return (
+      <Link
+        key={item.name}
+        href={item.href}
+        prefetch={true}
+        onClick={() => setOpen(false)}
+        className={cn(
+          "group flex items-center px-3 py-3 text-sm font-medium rounded-md transition-all duration-200",
+          isActive 
+            ? "bg-white/15 text-white border-l-4 border-accent" 
+            : "text-white/70 hover:bg-white/10 hover:text-white"
+        )}
+      >
+        <item.icon className={cn(
+          "mr-3 h-5 w-5 shrink-0",
+          isActive ? "text-white" : "text-white/60 group-hover:text-white"
+        )} />
+        {item.name}
+      </Link>
+    )
+  }
+
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-primary text-primary-foreground shadow-xl border-r border-primary/10">
       <div className="p-6 flex items-center gap-3">
@@ -57,33 +80,15 @@ export function DashboardSidebar() {
       </div>
       
       <nav className="flex-1 px-4 space-y-1 mt-4 overflow-y-auto">
-        {navigation.map((item) => {
-          const isActive = pathname === item.href
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              onClick={() => setOpen(false)}
-              className={cn(
-                "group flex items-center px-3 py-3 text-sm font-medium rounded-md transition-all duration-200",
-                isActive 
-                  ? "bg-white/15 text-white border-l-4 border-accent" 
-                  : "text-white/70 hover:bg-white/10 hover:text-white"
-              )}
-            >
-              <item.icon className={cn(
-                "mr-3 h-5 w-5 shrink-0",
-                isActive ? "text-white" : "text-white/60 group-hover:text-white"
-              )} />
-              {item.name}
-            </Link>
-          )
-        })}
+        {navigation.map((item) => (
+          <SidebarLink key={item.name} item={item} />
+        ))}
       </nav>
 
       <div className="p-4 border-t border-white/10 space-y-2">
         <Link
           href="/test-db"
+          prefetch={true}
           onClick={() => setOpen(false)}
           className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-all"
         >
@@ -92,6 +97,7 @@ export function DashboardSidebar() {
         </Link>
         <Link
           href="/privacy"
+          prefetch={true}
           onClick={() => setOpen(false)}
           className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-all"
         >
