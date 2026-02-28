@@ -132,12 +132,13 @@ export default function PatientsPage() {
 
     setIsInitialLoading(true);
     
-    // Otimização: Consulta por índice simples (name) para evitar erro de índice composto
-    // A filtragem por status 'active' é feita no lado do cliente para garantir funcionamento imediato
+    // 1. Fonte da Verdade: CRM de Pacientes em Tempo Real
+    // Filtragem de status 'active' padronizada na query
     const q = query(
       collection(db, "patients"), 
+      where("status", "==", "active"),
       orderBy("name"),
-      limit(100) // Buscamos um set maior para filtrar no cliente sem perder densidade
+      limit(100)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -181,6 +182,7 @@ export default function PatientsPage() {
   const handleArchivePatient = async (patientId: string, patientName: string) => {
     try {
       const patientRef = doc(db, "patients", patientId);
+      // Alteração de status centralizada
       await updateDoc(patientRef, { status: 'inactive' });
       await logAction("ARQUIVAR_PACIENTE", patientId, { nome: patientName });
       toast({ title: "Registro Arquivado", description: `${patientName} movido para inativos.` });
@@ -209,7 +211,8 @@ export default function PatientsPage() {
         lgpdConsent: formData.lgpdConsent,
         chronoAge: chronoAgeCalculated,
         bioAge: finalBioAge,
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
+        status: "active" // Garantia de consistência
       };
 
       if (editingPatientId) {
@@ -218,7 +221,6 @@ export default function PatientsPage() {
       } else {
         await addDoc(collection(db, "patients"), {
           ...patientData,
-          status: "active",
           lastConsultation: new Date().toLocaleDateString('pt-BR'),
           createdAt: serverTimestamp()
         });
@@ -243,17 +245,13 @@ export default function PatientsPage() {
 
   const filteredPatients = useMemo(() => {
     return patients.filter(p => {
-      // Filtro de Busca
       const matchesSearch = p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
                            p.cpf?.includes(searchTerm);
       
       if (!matchesSearch) return false;
-
-      // Filtro de Status/Contexto (Processado no Cliente para evitar índices compostos)
       if (activeFilter === 'today') return p.lastConsultation === todayStr;
-      if (activeFilter === 'active') return p.status === 'active';
-      return p.status === 'active'; // Por padrão só mostra ativos
-    }).slice(0, 20); // Mantém a densidade da UI limitada
+      return true;
+    }).slice(0, 20);
   }, [patients, searchTerm, activeFilter, todayStr]);
 
   if (!mounted) return null;
@@ -519,63 +517,6 @@ export default function PatientsPage() {
             )}
           </TableBody>
         </Table>
-      </div>
-
-      <div className="md:hidden space-y-3">
-        {filteredPatients.map((p) => (
-          <Card key={p.id} className="border-none shadow-sm bg-white overflow-hidden">
-            <CardContent className="p-3 space-y-3">
-              <div className="flex justify-between items-start">
-                <div className="flex gap-2">
-                  <Link href={`/patients/${p.id}`} className="bg-primary/10 p-2 rounded-lg" prefetch={true}>
-                    <User className="h-4 w-4 text-primary" />
-                  </Link>
-                  <div>
-                    <h3 className="font-bold text-slate-900 text-sm leading-tight">{p.name}</h3>
-                    <p className="text-[10px] text-muted-foreground">{p.email}</p>
-                  </div>
-                </div>
-                <Badge variant="outline" className="text-[9px] h-4 font-bold border-emerald-200 text-emerald-700">ATIVO</Badge>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 py-2 border-y border-slate-50">
-                <div className="text-center">
-                  <p className="text-[8px] uppercase font-bold text-slate-400">Idade / Bio</p>
-                  <p className="text-xs font-bold text-primary">{p.chronoAge} / <span className={p.bioAge < p.chronoAge ? "text-emerald-600" : "text-rose-600"}>{p.bioAge}</span></p>
-                </div>
-                <div className="text-center">
-                  <p className="text-[8px] uppercase font-bold text-slate-400">Última Visita</p>
-                  <p className="text-xs font-bold text-slate-600">{p.lastConsultation}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between gap-1">
-                <Link href={`/patients/${p.id}`} className="flex-1" prefetch={true}>
-                  <Button size="sm" variant="secondary" className="h-8 w-full text-[10px] font-bold gap-1">
-                    <UserCircle className="h-3 w-3" /> PRONTUÁRIO
-                  </Button>
-                </Link>
-                <Link href={`/patients/${p.id}?tab=evolution`} className="flex-1" prefetch={true}>
-                  <Button size="sm" variant="outline" className="h-8 w-full text-[10px] font-bold gap-1 border-primary/20 text-primary">
-                    <HistoryIcon className="h-3 w-3" /> EVOLUÇÃO
-                  </Button>
-                </Link>
-                <Button size="sm" variant="ghost" className="h-8 w-10 p-0 text-blue-500">
-                  <MessageCircle className="h-4 w-4" />
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuItem onClick={() => handleOpenEdit(p)}>Editar</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleArchivePatient(p.id, p.name)} className="text-red-600">Arquivar</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
       </div>
     </div>
   );

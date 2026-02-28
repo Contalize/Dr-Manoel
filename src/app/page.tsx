@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from "react";
@@ -55,6 +56,7 @@ export default function Dashboard() {
       year: 'numeric' 
     }));
 
+    // Verifica conexão inicial
     const checkConn = async () => {
       try {
         const q = query(collection(db, "patients"), limit(1));
@@ -66,7 +68,7 @@ export default function Dashboard() {
     };
     checkConn();
 
-    // FILTRO DE PACIENTES ATIVOS PARA DASHBOARD
+    // 1. Fonte da Verdade: Pacientes Ativos e Aniversariantes
     const qPatients = query(
       collection(db, "patients"), 
       where("status", "==", "active")
@@ -107,8 +109,13 @@ export default function Dashboard() {
       });
 
       setUpcomingBirthdays(birthdays);
-    }, () => setDbStatus('offline'));
+      setDbStatus('online');
+    }, (error) => {
+      console.error("Erro no stream de pacientes:", error);
+      setDbStatus('offline');
+    });
 
+    // 2. Fonte da Verdade: Agenda do Dia
     const todayStr = new Date().toISOString().split('T')[0];
     const qAppointments = query(
       collection(db, "appointments"), 
@@ -121,11 +128,13 @@ export default function Dashboard() {
       setAppointments(apps);
     });
 
+    // 3. Fonte da Verdade: Financeiro
     const unsubscribeFinance = onSnapshot(collection(db, "transactions"), (snapshot) => {
       const total = snapshot.docs.reduce((acc, doc) => acc + (doc.data().amount || 0), 0);
       setRevenue(total);
     });
 
+    // Cleanup: Encerra todos os canais ao sair da página para evitar memory leaks
     return () => {
       unsubscribePatients();
       unsubscribeApps();
@@ -171,10 +180,10 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard 
-          title="Total de Pacientes" 
+          title="Pacientes Ativos" 
           value={patientCount} 
           icon={Users} 
-          trend={{ value: "12%", positive: true }} 
+          trend={{ value: "Fiel à base", positive: true }} 
         />
         <StatCard 
           title="Agendamentos Hoje" 
@@ -185,7 +194,7 @@ export default function Dashboard() {
           title="Faturamento Mês" 
           value={revenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} 
           icon={TrendingUp} 
-          trend={{ value: "8%", positive: true }} 
+          trend={{ value: "Real-time", positive: true }} 
         />
         <Card className="bg-primary text-white border-none shadow-md overflow-hidden flex flex-col justify-center">
           <CardContent className="p-6">
