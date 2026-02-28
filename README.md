@@ -15,12 +15,11 @@ O **PharmaZen** é uma plataforma SaaS (Software as a Service) desenvolvida espe
 
 ### 🛠️ Tech Stack
 
-- **Frontend:** [Next.js 15 (App Router)](https://nextjs.org/)
-- **Linguagem:** [TypeScript](https://www.typescriptlang.org/)
-- **Estilização:** [Tailwind CSS](https://tailwindcss.com/) + [Shadcn/UI](https://ui.shadcn.com/)
-- **Backend:** [Firebase Firestore](https://firebase.google.com/docs/firestore)
-- **Autenticação:** [Firebase Auth](https://firebase.google.com/docs/auth)
-- **AI/LLM:** [Google Genkit](https://firebase.google.com/docs/genkit) (Gemini 1.5 Flash)
+- **Frontend:** Next.js 15 (App Router)
+- **Linguagem:** TypeScript
+- **Estilização:** Tailwind CSS + Shadcn/UI
+- **Backend:** Firebase Firestore + Auth
+- **AI/LLM:** Google Genkit (Gemini 1.5 Flash)
 
 ### 📦 Como Iniciar o Desenvolvimento
 
@@ -35,7 +34,7 @@ O **PharmaZen** é uma plataforma SaaS (Software as a Service) desenvolvida espe
    ```
 
 3. **Configuração de Ambiente:**
-   Crie um arquivo `.env` na raiz do projeto com as suas credenciais do Firebase e chaves de API necessárias.
+   Crie um arquivo `.env` na raiz do projeto com as suas credenciais do Firebase.
 
 4. **Rodar em Desenvolvimento:**
    ```bash
@@ -45,6 +44,19 @@ O **PharmaZen** é uma plataforma SaaS (Software as a Service) desenvolvida espe
 ### 🔒 Segurança e Privacidade
 
 Este software foi projetado seguindo as diretrizes da **LGPD (Lei Geral de Proteção de Dados)**. Dados sensíveis de saúde são protegidos por camadas de autenticação e todas as visualizações de dados críticos são auditadas na coleção `audit_logs`.
+
+### 🚀 Comandos para Conectar ao GitHub
+
+Se você estiver iniciando o repositório agora, execute estes comandos no seu terminal:
+
+```bash
+git init
+git add .
+git commit -m "Initial commit: PharmaZen Core"
+git branch -M main
+git remote add origin https://github.com/Contalize/Dr-Manoel.git
+git push -u origin main
+```
 
 ---
 *Desenvolvido para transformar a prática farmacêutica integrativa.*
