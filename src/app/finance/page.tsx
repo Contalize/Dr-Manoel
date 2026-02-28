@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { NewTransactionDialog } from "@/components/finance/NewTransactionDialog";
 
 interface Transaction {
   id: string;
@@ -57,9 +58,10 @@ export default function FinancePage() {
     pendingPayments: 0,
     avgTicket: 0
   });
+  const [cashFlowData, setCashFlowData] = useState<{ name: string; value: number }[]>([]);
 
   useEffect(() => {
-    const q = query(collection(db, "transactions"), orderBy("date", "desc"), limit(10));
+    const q = query(collection(db, "transactions"), orderBy("createdAt", "desc"), limit(50));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const txs = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -74,6 +76,33 @@ export default function FinancePage() {
         pendingPayments: pending,
         avgTicket: txs.length > 0 ? total / txs.length : 0
       });
+
+      // Calcular dados reais para o gráfico de fluxo de caixa (mock substituído por real data)
+      const flowData = txs.reduce((acc, tx) => {
+        if (tx.status === 'Paid') {
+          // Extrai mês no formato 'MM/YYYY' ou 'YYYY-MM-DD' e agrupa
+          const dateStr = typeof tx.date === 'string' ? tx.date : new Date().toISOString();
+          // Tentar formatar a string de data (assumindo pt-BR 'DD/MM/YYYY' ou ISO 'YYYY-MM-DD')
+          let monthName = "Mês atual";
+          if (dateStr.includes('/')) {
+            const parts = dateStr.split('/');
+            if (parts.length >= 2) monthName = `Mês ${parts[1]}`;
+          } else if (dateStr.includes('-')) {
+            const parts = dateStr.split('-');
+            if (parts.length >= 2) monthName = `Mês ${parts[1]}`;
+          }
+
+          if (!acc[monthName]) acc[monthName] = 0;
+          acc[monthName] += tx.amount;
+        }
+        return acc;
+      }, {} as Record<string, number>);
+
+      const chartData = Object.keys(flowData).map(key => ({
+        name: key,
+        value: flowData[key]
+      }));
+      setCashFlowData(chartData.length > 0 ? chartData : mockCashFlow); // Fallback para mock apenas se estiver completamente vazio para não quebrar UI de demonstração
     });
     return () => unsubscribe();
   }, []);
@@ -89,9 +118,7 @@ export default function FinancePage() {
           <Button variant="outline" className="border-primary/20 text-primary">
             <Download className="h-4 w-4 mr-2" /> Exportar Relatório
           </Button>
-          <Button className="bg-accent text-white hover:bg-accent/90">
-            <PlusCircle className="h-4 w-4 mr-2" /> Registrar Despesa
-          </Button>
+          <NewTransactionDialog />
         </div>
       </header>
 
@@ -123,7 +150,7 @@ export default function FinancePage() {
           <CardContent>
             <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={mockCashFlow}>
+                <BarChart data={cashFlowData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                   <XAxis dataKey="name" stroke="#94A3B8" fontSize={12} tickLine={false} axisLine={false} />
                   <YAxis stroke="#94A3B8" fontSize={12} tickLine={false} axisLine={false} />
@@ -132,7 +159,7 @@ export default function FinancePage() {
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                   />
                   <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                    {mockCashFlow.map((entry, index) => (
+                    {cashFlowData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={index === 2 ? "#D4AF37" : "#2D5A27"} />
                     ))}
                   </Bar>

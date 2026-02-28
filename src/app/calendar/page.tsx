@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { db } from "@/firebase/config";
-import { collection, onSnapshot, query, where, limit } from "firebase/firestore";
+import { collection, onSnapshot, query, where, limit, doc, updateDoc } from "firebase/firestore";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +29,7 @@ import { format, startOfDay, addHours } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
+import { NewAppointmentDialog } from "@/components/calendar/NewAppointmentDialog";
 
 interface Appointment {
   id: string;
@@ -94,6 +95,15 @@ export default function CalendarPage() {
     );
   }, [appointments, searchTerm]);
 
+  const updateStatus = async (id: string, newStatus: Appointment['status']) => {
+    try {
+      const appRef = doc(db, "appointments", id);
+      await updateDoc(appRef, { status: newStatus });
+    } catch (error) {
+      console.error("Erro ao atualizar status:", error);
+    }
+  };
+
   const getStatusConfig = (status: Appointment['status']) => {
     const configs = {
       'Scheduled': { label: 'Aguardando', color: 'bg-amber-100 text-amber-700 border-amber-200', icon: Clock },
@@ -127,9 +137,7 @@ export default function CalendarPage() {
           <p className="text-muted-foreground">Gestão de atendimentos para {date ? format(date, "dd 'de' MMMM", { locale: ptBR }) : ""}.</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button className="bg-accent text-white hover:bg-accent/90 shadow-lg px-6 font-bold">
-            <Plus className="h-4 w-4 mr-2" /> Novo Agendamento
-          </Button>
+          <NewAppointmentDialog />
         </div>
       </header>
 
@@ -263,16 +271,49 @@ export default function CalendarPage() {
                                       </div>
                                     </div>
 
-                                    <div className="flex items-center gap-2">
-                                      <Button variant="outline" size="sm" className="h-9 w-9 p-0 text-emerald-600 hover:bg-emerald-50 rounded-lg">
-                                        <MessageCircle className="h-4 w-4" />
-                                      </Button>
-                                      <Link href={app.patientId ? `/patients/${app.patientId}` : '#'}>
-                                        <Button className="bg-primary hover:bg-primary/90 text-white font-bold text-xs px-4 h-9 rounded-lg shadow-md flex items-center gap-2">
-                                          <PlayCircle className="h-4 w-4" />
+                                    <div className="flex flex-col gap-2">
+                                      <div className="flex justify-end gap-2">
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="h-7 text-[10px] font-bold"
+                                          onClick={() => updateStatus(app.id, 'Scheduled')}
+                                          disabled={app.status === 'Scheduled'}
+                                        >
+                                          Aguardando
+                                        </Button>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="h-7 text-[10px] font-bold border-blue-200 text-blue-600 hover:bg-blue-50"
+                                          onClick={() => updateStatus(app.id, 'Confirmed')}
+                                          disabled={app.status === 'Confirmed'}
+                                        >
                                           Atender
                                         </Button>
-                                      </Link>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="h-7 text-[10px] font-bold border-emerald-200 text-emerald-600 hover:bg-emerald-50"
+                                          onClick={() => updateStatus(app.id, 'Completed')}
+                                          disabled={app.status === 'Completed'}
+                                        >
+                                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                                          Concluir
+                                        </Button>
+                                      </div>
+
+                                      <div className="flex items-center gap-2 self-end">
+                                        <Button variant="outline" size="sm" className="h-9 w-9 p-0 text-emerald-600 hover:bg-emerald-50 rounded-lg">
+                                          <MessageCircle className="h-4 w-4" />
+                                        </Button>
+                                        <Link href={app.patientId ? `/patients/${app.patientId}` : '#'}>
+                                          <Button className="bg-primary hover:bg-primary/90 text-white font-bold text-xs px-4 h-9 rounded-lg shadow-md flex items-center gap-2">
+                                            <PlayCircle className="h-4 w-4" />
+                                            Prontuário
+                                          </Button>
+                                        </Link>
+                                      </div>
                                     </div>
                                   </div>
                                 </div>

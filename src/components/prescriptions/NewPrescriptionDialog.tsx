@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm, useFieldArray } from "react-hook-form"
 import * as z from "zod"
 import { Check, ChevronsUpDown, Loader2, Plus, Trash2, Pill, Save, Search, Info, UserCheck, AlertCircle } from "lucide-react"
-import { db } from "@/firebase/config"
+import { db, auth } from "@/firebase/config"
 import { collection, addDoc, serverTimestamp, getDocs, query, where } from "firebase/firestore"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -111,6 +111,10 @@ export function NewPrescriptionDialog({ initialPatientId, initialPatientName, tr
   const { toast } = useToast()
   const { professionals } = useClinic()
 
+  const printPrescription = (id: string) => {
+    window.open(`/print/prescription/${id}`, "_blank")
+  }
+
   const form = useForm<PrescriptionFormValues>({
     resolver: zodResolver(prescriptionFormSchema),
     defaultValues: {
@@ -157,7 +161,10 @@ export function NewPrescriptionDialog({ initialPatientId, initialPatientName, tr
       const patientName = initialPatientName || selectedPatient?.name || "Desconhecido"
       const selectedProf = professionals.find(p => p.id === values.professionalId)
 
-      await addDoc(collection(db, "prescriptions"), {
+      const userId = auth.currentUser?.uid
+      if (!userId) throw new Error("Usuário não autenticado")
+
+      const docRef = await addDoc(collection(db, "prescriptions"), {
         patientId: values.patientId,
         patientName,
         professionalId: values.professionalId,
@@ -166,6 +173,7 @@ export function NewPrescriptionDialog({ initialPatientId, initialPatientName, tr
         date: serverTimestamp(),
         medications: values.medications,
         notes: values.notes || "",
+        userId,
       })
 
       await logAction("EMISSAO_RECEITUARIO", values.patientId, { 
@@ -179,6 +187,11 @@ export function NewPrescriptionDialog({ initialPatientId, initialPatientName, tr
         description: `O receituário para ${patientName} foi arquivado com sucesso.`,
       })
       
+      // Abre a janela de impressão após salvar com sucesso
+      setTimeout(() => {
+        printPrescription(docRef.id);
+      }, 500);
+
       form.reset({
         patientId: initialPatientId || "",
         professionalId: "",
