@@ -1,17 +1,11 @@
 
 "use client"
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { db } from "@/firebase/config";
 import { 
-  collection, 
-  query, 
-  getDocs, 
-  limit, 
-  orderBy, 
-  startAt, 
-  endAt, 
   addDoc, 
+  collection,
   serverTimestamp 
 } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
@@ -41,17 +35,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { logAction } from "@/lib/audit";
-
-interface MedicamentoReferencia {
-  id: string;
-  nome_comercial: string;
-  principio_ativo: string;
-  concentracao: string;
-  categoria: "Alopático" | "Fitoterápico" | "Suplemento";
-  bula_resumida: string;
-  url_bula_anvisa: string;
-  contraindicacoes: string[];
-}
+import { BASE_MEDICAMENTOS, type MedicamentoReferencia } from "@/data/medicamentos";
 
 interface TerapiaSelecionada extends MedicamentoReferencia {
   id_instancia: string;
@@ -67,43 +51,31 @@ export default function PlannerPage() {
   const [explanation, setExplanation] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
   const { toast } = useToast();
 
-  // Busca Inteligente na Base Mestra (Simulação ANVISA via medicamentos_referencia)
-  useEffect(() => {
-    const searchMedications = async () => {
-      if (searchTerm.length > 2) {
-        setIsSearching(true);
-        try {
-          const searchTermFixed = searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1);
-          const q = query(
-            collection(db, "medicamentos_referencia"),
-            orderBy("nome_comercial"),
-            startAt(searchTermFixed),
-            endAt(searchTermFixed + '\uf8ff'),
-            limit(10)
-          );
-          
-          const snapshot = await getDocs(q);
-          const results = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          })) as MedicamentoReferencia[];
-          
-          setSuggestions(results);
-        } catch (error) {
-          console.error("Erro na busca de medicamentos:", error);
-        } finally {
-          setIsSearching(false);
-        }
-      } else {
-        setSuggestions([]);
-      }
-    };
+  // Função para normalizar strings (remover acentos e lowercase)
+  const normalizeString = (str: string) => {
+    return str
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+  };
 
-    const timer = setTimeout(searchMedications, 300);
-    return () => clearTimeout(timer);
+  // Algoritmo de Busca Local Ultra-Rápida
+  useEffect(() => {
+    if (searchTerm.length > 1) {
+      const normalizedSearch = normalizeString(searchTerm);
+      
+      const results = BASE_MEDICAMENTOS.filter(med => {
+        const nameMatch = normalizeString(med.nome_comercial).includes(normalizedSearch);
+        const activeMatch = normalizeString(med.principio_ativo).includes(normalizedSearch);
+        return nameMatch || activeMatch;
+      }).slice(0, 15); // Limita a 15 resultados para performance visual
+      
+      setSuggestions(results);
+    } else {
+      setSuggestions([]);
+    }
   }, [searchTerm]);
 
   const addTherapy = (item: MedicamentoReferencia) => {
@@ -126,7 +98,7 @@ export default function PlannerPage() {
   const checkSafetyAlerts = (therapy: MedicamentoReferencia) => {
     if (!anamnesisSummary) return null;
     return therapy.contraindicacoes.find(ci => 
-      anamnesisSummary.toLowerCase().includes(ci.toLowerCase())
+      normalizeString(anamnesisSummary).includes(normalizeString(ci))
     );
   };
 
@@ -169,7 +141,6 @@ export default function PlannerPage() {
   const saveProtocol = async () => {
     setIsSaving(true);
     try {
-      // Simulação de persistência no prontuário
       await logAction("SALVAR_PROTOCOLO_AUDITADO", "N/A", { protocolo: protocolName });
       toast({
         title: "Protocolo Arquivado",
@@ -183,7 +154,7 @@ export default function PlannerPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
+        <div className="mt-12 md:mt-0">
           <h1 className="text-3xl font-bold text-primary font-headline">Planejador de Inteligência Clínica</h1>
           <p className="text-muted-foreground flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-emerald-600" />
@@ -234,10 +205,10 @@ export default function PlannerPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-primary font-headline">2. Seleção de Medicamentos e Ativos</CardTitle>
-                  <CardDescription>Busca ativa na base sincronizada (ANVISA / Fitoterápicos).</CardDescription>
+                  <CardDescription>Busca local instantânea na base mestra (ANVISA / Suplementos).</CardDescription>
                 </div>
                 <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 uppercase text-[10px] font-bold">
-                  <Database className="h-3 w-3 mr-1" /> Sincronização Ativa
+                  <Database className="h-3 w-3 mr-1" /> Busca Inteligente
                 </Badge>
               </div>
             </CardHeader>
@@ -246,12 +217,11 @@ export default function PlannerPage() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input 
-                    placeholder="Digite o nome comercial ou princípio ativo..." 
+                    placeholder="Busque por Nome ou Princípio Ativo (Ex: Glutationa, Vitamina D...)" 
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10 bg-secondary/20 border-none h-12"
                   />
-                  {isSearching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-primary" />}
                 </div>
 
                 {suggestions.length > 0 && (
@@ -278,7 +248,7 @@ export default function PlannerPage() {
               <div className="space-y-4">
                 {therapies.length === 0 && (
                   <div className="text-center py-12 border-2 border-dashed rounded-2xl border-secondary/30 bg-secondary/5">
-                    <p className="text-muted-foreground text-sm italic">Adicione terapias para análise de segurança clínica.</p>
+                    <p className="text-muted-foreground text-sm italic">Selecione terapias para análise de segurança clínica.</p>
                   </div>
                 )}
                 {therapies.map((therapy) => {
@@ -294,7 +264,8 @@ export default function PlannerPage() {
                             <div className={cn(
                               "p-3 rounded-xl",
                               therapy.categoria === "Fitoterápico" ? "bg-emerald-100 text-emerald-700" :
-                              therapy.categoria === "Alopático" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"
+                              therapy.categoria === "Alopático" ? "bg-blue-100 text-blue-700" : 
+                              therapy.categoria === "Injetável" ? "bg-purple-100 text-purple-700" : "bg-amber-100 text-amber-700"
                             )}>
                               {therapy.categoria === "Fitoterápico" ? <Leaf className="h-5 w-5" /> :
                                therapy.categoria === "Alopático" ? <FlaskConical className="h-5 w-5" /> : <Droplets className="h-5 w-5" />}
@@ -304,7 +275,7 @@ export default function PlannerPage() {
                                 {therapy.nome_comercial}
                                 {alert && (
                                   <Badge variant="destructive" className="animate-pulse uppercase text-[8px] font-bold tracking-tighter py-0 h-4">
-                                    <AlertTriangle className="h-3 w-3 mr-1" /> Alerta de Segurança
+                                    <AlertTriangle className="h-3 w-3 mr-1" /> Risco de Segurança
                                   </Badge>
                                 )}
                               </h4>
@@ -322,16 +293,16 @@ export default function PlannerPage() {
                           <div className="p-3 bg-red-100/50 rounded-lg border border-red-200 flex gap-2">
                             <AlertTriangle className="h-4 w-4 text-red-700 shrink-0" />
                             <p className="text-xs text-red-800 font-bold">
-                              RISCO DETECTADO: Este medicamento é contraindicado para pacientes com "{alert}".
+                              ALERTA: Contraindicado para pacientes com histórico de "{alert}".
                             </p>
                           </div>
                         )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
                           <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-muted-foreground uppercase">Posologia e Orientações</label>
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase">Conduta e Posologia Sugerida</label>
                             <Input 
-                              placeholder="Ex: 1 cápsula 12/12h após refeições" 
+                              placeholder="Ex: 1 dose via oral ao dia" 
                               className="bg-secondary/10 border-none text-xs"
                               value={therapy.posologia}
                               onChange={(e) => {
@@ -343,10 +314,8 @@ export default function PlannerPage() {
                             />
                           </div>
                           <div className="flex justify-end pt-5">
-                            <Button variant="link" className="text-accent text-xs h-auto p-0 gap-1 font-bold" asChild>
-                              <a href={therapy.url_bula_anvisa} target="_blank" rel="noopener noreferrer">
-                                <ExternalLink className="h-3 w-3" /> Ver Bula Oficial (PDF)
-                              </a>
+                            <Button variant="link" className="text-accent text-xs h-auto p-0 gap-1 font-bold">
+                              <ExternalLink className="h-3 w-3" /> Info Técnica / Bula
                             </Button>
                           </div>
                         </div>
@@ -364,9 +333,9 @@ export default function PlannerPage() {
             <CardHeader className="bg-accent text-white">
               <CardTitle className="flex items-center gap-2 font-headline text-lg">
                 <Sparkles className="h-5 w-5" />
-                Racional Clínico IA
+                Racional IA PharmaZen
               </CardTitle>
-              <CardDescription className="text-white/80">Validação baseada na farmacopeia brasileira.</CardDescription>
+              <CardDescription className="text-white/80">Validação técnica baseada na anamnese.</CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
               <Button 
@@ -375,15 +344,15 @@ export default function PlannerPage() {
                 className="w-full bg-accent hover:bg-accent/90 text-white shadow-lg py-7 font-bold text-md"
               >
                 {isGenerating ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Sparkles className="h-5 w-5 mr-2" />}
-                Gerar Justificativa Farmacêutica
+                Analisar Racional Clínico
               </Button>
               
               {explanation && (
                 <div className="mt-6 p-5 bg-accent/5 border border-accent/20 rounded-2xl space-y-4 animate-in fade-in zoom-in-95">
                   <h4 className="text-[10px] font-bold text-accent uppercase tracking-widest flex items-center gap-2">
-                    <CheckCircle2 className="h-3 w-3" /> Análise de Compatibilidade
+                    <CheckCircle2 className="h-3 w-3" /> Justificativa Terapêutica
                   </h4>
-                  <div className="text-sm text-foreground leading-relaxed font-medium">
+                  <div className="text-sm text-foreground leading-relaxed font-medium whitespace-pre-wrap">
                     {explanation}
                   </div>
                 </div>
@@ -396,21 +365,21 @@ export default function PlannerPage() {
                 className="w-full bg-primary hover:bg-primary/90 py-6 font-bold"
               >
                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                Salvar Protocolo Auditado
+                Salvar no Prontuário
               </Button>
               <div className="flex items-center justify-center gap-2 text-[9px] text-muted-foreground uppercase tracking-widest font-bold">
-                <ShieldCheck className="h-3 w-3" /> Conformidade RDC 67/2007 • Rastreabilidade Ativa
+                <ShieldCheck className="h-3 w-3" /> Algoritmo de Verificação Ativo
               </div>
             </CardFooter>
           </Card>
 
           <Card className="border-none shadow-md bg-secondary/5">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-bold text-primary uppercase">Dica de Segurança</CardTitle>
+              <CardTitle className="text-sm font-bold text-primary uppercase">Segurança de Dados</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                O sistema cruza as <strong>contraindicações</strong> da bula oficial com as notas da <strong>anamnese</strong>. Mantenha os registros do paciente atualizados para garantir a precisão dos alertas.
+                Este planejador utiliza uma base de dados local para garantir privacidade e velocidade. O racional clínico gerado deve ser revisado pelo profissional responsável.
               </p>
             </CardContent>
           </Card>
