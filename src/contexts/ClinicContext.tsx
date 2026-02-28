@@ -36,14 +36,14 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Listen to clinic settings
+    // Escuta as configurações da clínica
     const unsubClinic = onSnapshot(doc(db, 'clinic_settings', 'main'), (snap) => {
       if (snap.exists()) {
         setClinicData(snap.data() as ClinicData);
       }
     });
 
-    // Listen to active professionals
+    // Escuta os profissionais ativos
     const qProfs = query(collection(db, 'professionals'), where('status', '==', 'active'));
     const unsubProfs = onSnapshot(qProfs, (snap) => {
       const profList = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Professional));
