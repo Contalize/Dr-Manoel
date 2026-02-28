@@ -17,34 +17,19 @@ import {
   Cake,
   Gift,
   ChevronRight,
-  AlertTriangle,
   CheckCircle2,
-  BarChart3
+  BarChart3,
+  BellOff,
+  LineChart
 } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  AreaChart,
-  Area
-} from "recharts";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { isWithinInterval, addDays, parseISO, format, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
-
-const clinicalTrends = [
-  { month: 'Jan', pcr: 6.2, adesao: 65 },
-  { month: 'Fev', pcr: 5.8, adesao: 68 },
-  { month: 'Mar', pcr: 4.5, adesao: 82 },
-  { month: 'Abr', pcr: 3.8, adesao: 88 },
-];
 
 interface UpcomingBirthday {
   id: string;
@@ -54,13 +39,6 @@ interface UpcomingBirthday {
   formattedDay: string;
 }
 
-interface ClinicalAlert {
-  id: string;
-  patientName: string;
-  type: 'critical' | 'warning' | 'info';
-  message: string;
-}
-
 export default function Dashboard() {
   const [patientCount, setPatientCount] = useState(0);
   const [appointments, setAppointments] = useState<any[]>([]);
@@ -68,11 +46,6 @@ export default function Dashboard() {
   const [dbStatus, setDbStatus] = useState<'online' | 'offline' | 'checking'>('checking');
   const [currentDate, setCurrentDate] = useState<string>("");
   const [upcomingBirthdays, setUpcomingBirthdays] = useState<UpcomingBirthday[]>([]);
-  const [clinicalAlerts] = useState<ClinicalAlert[]>([
-    { id: '1', patientName: 'Ana Silva Santos', type: 'critical', message: 'PCR Elevado (8.2 mg/dL) detectado em exame recente.' },
-    { id: '2', patientName: 'Carlos Eduardo Souza', type: 'warning', message: 'Adesão ao Protocolo de Suplementação abaixo de 60%.' },
-    { id: '3', patientName: 'Mariana Oliveira', type: 'info', message: 'Evolução clínica positiva: Redução de 30% em marcadores inflamatórios.' }
-  ]);
 
   useEffect(() => {
     const now = new Date();
@@ -226,47 +199,10 @@ export default function Dashboard() {
             <CardTitle className="text-primary font-headline">Evolução Clínica Consolidada</CardTitle>
             <CardDescription>Monitoramento de Marcadores Inflamatórios (PCR) vs Adesão Terapêutica.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="h-[350px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={clinicalTrends}>
-                  <defs>
-                    <linearGradient id="colorPCR" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#2D5A27" stopOpacity={0.1}/>
-                      <stop offset="95%" stopColor="#2D5A27" stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="colorAdesao" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#D4AF37" stopOpacity={0.1}/>
-                      <stop offset="95%" stopColor="#D4AF37" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                  <XAxis dataKey="month" stroke="#94A3B8" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#94A3B8" fontSize={12} tickLine={false} axisLine={false} />
-                  <Tooltip 
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="pcr" 
-                    stroke="#2D5A27" 
-                    strokeWidth={3}
-                    fillOpacity={1} 
-                    fill="url(#colorPCR)" 
-                    name="Média PCR (mg/dL)"
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="adesao" 
-                    stroke="#D4AF37" 
-                    strokeWidth={3}
-                    fillOpacity={1} 
-                    fill="url(#colorAdesao)" 
-                    name="Adesão ao Protocolo (%)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+          <CardContent className="flex flex-col items-center justify-center py-20 text-center min-h-[350px]">
+            <LineChart className="h-10 w-10 text-slate-200 mb-3" />
+            <h4 className="font-bold text-slate-900">Dados clínicos insuficientes.</h4>
+            <p className="text-xs text-muted-foreground mt-1">Registre consultas e marcadores para visualizar a evolução terapêutica.</p>
           </CardContent>
         </Card>
 
@@ -279,30 +215,11 @@ export default function Dashboard() {
               </div>
               <BarChart3 className="h-5 w-5 text-accent" />
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {clinicalAlerts.map((alert) => (
-                  <div key={alert.id} className={cn(
-                    "flex items-start gap-3 p-3 rounded-xl border transition-all",
-                    alert.type === 'critical' ? "bg-red-50 border-red-100" : 
-                    alert.type === 'warning' ? "bg-amber-50 border-amber-100" : "bg-emerald-50 border-emerald-100"
-                  )}>
-                    <div className={cn(
-                      "p-1.5 rounded-lg mt-0.5",
-                      alert.type === 'critical' ? "text-red-600 bg-red-100" : 
-                      alert.type === 'warning' ? "text-amber-600 bg-amber-100" : "text-emerald-600 bg-emerald-100"
-                    )}>
-                      {alert.type === 'critical' ? <AlertTriangle className="h-4 w-4" /> : 
-                       alert.type === 'warning' ? <AlertTriangle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-xs text-slate-800">{alert.patientName}</h4>
-                      <p className="text-[10px] text-slate-600 mt-0.5 leading-relaxed">{alert.message}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <Button variant="ghost" className="w-full mt-4 text-xs font-bold text-accent hover:bg-accent/5">
+            <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+              <BellOff className="h-10 w-10 text-slate-200 mb-3" />
+              <h4 className="font-bold text-slate-900">Nenhum alerta ativo.</h4>
+              <p className="text-xs text-muted-foreground mt-1">O sistema monitorará ativamente os prontuários em busca de interações ou riscos.</p>
+              <Button variant="ghost" className="w-full mt-8 text-xs font-bold text-accent hover:bg-accent/5">
                 Ver Central de Inteligência
               </Button>
             </CardContent>
