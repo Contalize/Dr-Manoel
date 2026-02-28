@@ -3,7 +3,16 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { db } from "@/firebase/config";
-import { collection, onSnapshot, query, addDoc, serverTimestamp, updateDoc, doc, where } from "firebase/firestore";
+import { 
+  collection, 
+  onSnapshot, 
+  query, 
+  addDoc, 
+  serverTimestamp, 
+  updateDoc, 
+  doc, 
+  where 
+} from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { 
@@ -28,9 +37,13 @@ import {
   Fingerprint,
   Pencil,
   Archive,
-  FileText,
   UserCircle,
-  History
+  History,
+  Pill,
+  MessageCircle,
+  Filter,
+  CheckCircle2,
+  Clock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +71,7 @@ import { logAction } from "@/lib/audit";
 import { useToast } from "@/hooks/use-toast";
 import { differenceInYears, parseISO } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Patient {
   id: string;
@@ -80,7 +94,9 @@ export default function PatientsPage() {
   const [mounted, setMounted] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'today' | 'active'>('all');
   const [editingPatientId, setEditingPatientId] = useState<string | null>(null);
+  
   const { toast } = useToast();
   const router = useRouter();
 
@@ -104,7 +120,6 @@ export default function PatientsPage() {
     }
   }, [formData.birthDate]);
 
-  // Atualiza Bio-Idade automaticamente quando a Idade Cronológica muda
   useEffect(() => {
     if (chronoAgeCalculated > 0 && !formData.bioAge) {
       setFormData(prev => ({ ...prev, bioAge: chronoAgeCalculated.toString() }));
@@ -152,34 +167,22 @@ export default function PatientsPage() {
       const patientRef = doc(db, "patients", patientId);
       await updateDoc(patientRef, { status: 'inactive' });
       await logAction("ARQUIVAR_PACIENTE", patientId, { nome: patientName });
-      toast({
-        title: "Registro Arquivado",
-        description: `${patientName} foi movido para o arquivo inativo.`,
-      });
+      toast({ title: "Registro Arquivado", description: `${patientName} movido para inativos.` });
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Erro ao Arquivar",
-        description: "Não foi possível arquivar o paciente no momento."
-      });
+      toast({ variant: "destructive", title: "Erro ao Arquivar" });
     }
   };
 
   const handleSavePatient = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.lgpdConsent) {
-      toast({
-        title: "Consentimento Obrigatório",
-        description: "O consentimento LGPD é necessário para o tratamento dos dados.",
-        variant: "destructive"
-      });
+      toast({ title: "Consentimento LGPD necessário", variant: "destructive" });
       return;
     }
 
     setIsSubmitting(true);
     try {
       const finalBioAge = Number(formData.bioAge) || chronoAgeCalculated;
-      
       const patientData = {
         name: formData.name,
         email: formData.email,
@@ -194,36 +197,22 @@ export default function PatientsPage() {
       };
 
       if (editingPatientId) {
-        const patientRef = doc(db, "patients", editingPatientId);
-        await updateDoc(patientRef, patientData);
+        await updateDoc(doc(db, "patients", editingPatientId), patientData);
         await logAction("EDITAR_PACIENTE", editingPatientId, { nome: formData.name });
-        toast({
-          title: "Paciente Atualizado",
-          description: "Os dados foram salvos com sucesso.",
-        });
       } else {
         await addDoc(collection(db, "patients"), {
           ...patientData,
           status: "active",
           lastConsultation: new Date().toLocaleDateString('pt-BR'),
-          consentDate: new Date().toISOString(),
           createdAt: serverTimestamp()
         });
         await logAction("CRIAR_PACIENTE", "NOVO", { nome: formData.name });
-        toast({
-          title: "Paciente Cadastrado",
-          description: `${formData.name} foi adicionado à base ativa.`,
-        });
       }
-
       setIsDialogOpen(false);
       resetForm();
+      toast({ title: "Sucesso", description: "Dados sincronizados com o prontuário." });
     } catch (error) {
-      toast({
-        title: "Erro ao Salvar",
-        description: "Falha na comunicação com o banco de dados.",
-        variant: "destructive"
-      });
+      toast({ title: "Erro ao Salvar", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -231,216 +220,269 @@ export default function PatientsPage() {
 
   const resetForm = () => {
     setEditingPatientId(null);
-    setFormData({
-      name: "",
-      email: "",
-      cpf: "",
-      phone: "",
-      birthDate: "",
-      bioAge: "",
-      gender: "Feminino",
-      lgpdConsent: false
+    setFormData({ name: "", email: "", cpf: "", phone: "", birthDate: "", bioAge: "", gender: "Feminino", lgpdConsent: false });
+  };
+
+  const todayStr = new Date().toLocaleDateString('pt-BR');
+
+  const filteredPatients = useMemo(() => {
+    return patients.filter(p => {
+      const matchesSearch = p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                           p.cpf?.includes(searchTerm);
+      
+      if (!matchesSearch) return false;
+
+      if (activeFilter === 'today') return p.lastConsultation === todayStr;
+      if (activeFilter === 'active') return p.status === 'active';
+      return true;
     });
-  };
-
-  const filteredPatients = patients.filter(p => 
-    p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.cpf?.includes(searchTerm)
-  );
-
-  const maskCPF = (cpf: string) => {
-    if (!cpf) return "N/D";
-    if (showSensitive) return cpf;
-    return cpf.replace(/\d(?=\d{4})/g, "*");
-  };
+  }, [patients, searchTerm, activeFilter, todayStr]);
 
   if (!mounted) return null;
 
   return (
-    <div className="space-y-6 md:space-y-8 pb-12">
+    <div className="space-y-4 pb-12">
+      {/* Header Compacto */}
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="mt-12 md:mt-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-2xl md:text-3xl font-bold text-primary font-headline">CRM de Pacientes</h1>
-            <Badge variant="outline" className="hidden sm:flex bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] uppercase font-bold h-5 items-center gap-1">
-              <ShieldCheck className="h-3 w-3" /> Conformidade LGPD
+        <div className="mt-8 md:mt-0">
+          <h1 className="text-xl font-bold text-primary font-headline flex items-center gap-2">
+            CRM Clínico & Prontuários
+            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-none text-[10px] font-bold">
+              <ShieldCheck className="h-3 w-3 mr-1" /> LGPD ATIVA
             </Badge>
-          </div>
-          <p className="text-sm text-muted-foreground">Gestão de prontuários e rastreabilidade clínica.</p>
+          </h1>
+          <p className="text-xs text-muted-foreground">Gestão de alta densidade para profissionais de saúde.</p>
         </div>
 
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) resetForm();
-        }}>
-          <DialogTrigger asChild>
-            <Button className="w-full md:w-auto bg-accent text-white hover:bg-accent/90 shadow-lg py-6 md:py-2 font-bold">
-              <Plus className="h-5 w-5 mr-2" /> Novo Registro Clínico
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
-            <form onSubmit={handleSavePatient}>
-              <DialogHeader>
-                <DialogTitle className="text-primary font-headline text-2xl">
-                  {editingPatientId ? "Editar Prontuário" : "Cadastro Clínico Integrativo"}
-                </DialogTitle>
-                <DialogDescription>
-                  Campos obrigatórios marcados com *. Dados criptografados.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="name">Nome Completo *</Label>
-                  <Input 
-                    id="name" 
-                    value={formData.name} 
-                    onChange={(e) => setFormData({...formData, name: e.target.value})} 
-                    required 
-                    className="h-12 md:h-10 border-slate-200"
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="email">E-mail Profissional *</Label>
-                    <Input id="email" type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} required className="h-12 md:h-10" />
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleRevealSensitive}
+            className={cn("h-9 font-bold text-xs", showSensitive ? "bg-primary text-white" : "text-primary border-primary/20")}
+          >
+            {showSensitive ? <EyeOff className="h-3 w-3 mr-2" /> : <Eye className="h-3 w-3 mr-2" />}
+            {showSensitive ? "Ocultar Dados" : "Revelar Dados"}
+          </Button>
+          
+          <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="bg-accent text-white hover:bg-accent/90 shadow-md font-bold">
+                <Plus className="h-4 w-4 mr-2" /> Novo Paciente
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <form onSubmit={handleSavePatient}>
+                <DialogHeader>
+                  <DialogTitle className="text-primary font-headline">Cadastro Clínico</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-1">
+                    <Label htmlFor="name" className="text-xs">Nome Completo *</Label>
+                    <Input id="name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} required className="h-9" />
                   </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="cpf">CPF *</Label>
-                    <Input id="cpf" value={formData.cpf} onChange={(e) => setFormData({...formData, cpf: e.target.value})} required className="h-12 md:h-10" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="phone">Telefone Celular</Label>
-                    <Input id="phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="h-12 md:h-10" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="birthDate">Data de Nascimento *</Label>
-                    <Input id="birthDate" type="date" value={formData.birthDate} onChange={(e) => setFormData({...formData, birthDate: e.target.value})} required className="h-12 md:h-10" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4 items-end">
-                  <div className="grid gap-2">
-                    <Label className="text-primary font-bold">Idade Cronológica</Label>
-                    <div className="h-10 flex items-center px-3 bg-secondary/5 border rounded-md font-bold text-slate-700">
-                      {chronoAgeCalculated} anos
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-1">
+                      <Label htmlFor="email" className="text-xs">E-mail *</Label>
+                      <Input id="email" type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} required className="h-9" />
+                    </div>
+                    <div className="grid gap-1">
+                      <Label htmlFor="cpf" className="text-xs">CPF *</Label>
+                      <Input id="cpf" value={formData.cpf} onChange={(e) => setFormData({...formData, cpf: e.target.value})} required className="h-9" />
                     </div>
                   </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="bioAge">Bio-Idade (Avaliada)</Label>
-                    <Input id="bioAge" type="number" placeholder={chronoAgeCalculated.toString()} value={formData.bioAge} onChange={(e) => setFormData({...formData, bioAge: e.target.value})} className="h-12 md:h-10" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-1">
+                      <Label htmlFor="phone" className="text-xs">Telefone</Label>
+                      <Input id="phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="h-9" />
+                    </div>
+                    <div className="grid gap-1">
+                      <Label htmlFor="birthDate" className="text-xs">Nascimento *</Label>
+                      <Input id="birthDate" type="date" value={formData.birthDate} onChange={(e) => setFormData({...formData, birthDate: e.target.value})} required className="h-9" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-secondary/5 p-2 rounded-md border text-center">
+                      <p className="text-[10px] uppercase font-bold text-muted-foreground">Cronológica</p>
+                      <p className="text-lg font-bold text-primary">{chronoAgeCalculated}a</p>
+                    </div>
+                    <div className="grid gap-1">
+                      <Label htmlFor="bioAge" className="text-xs">Bio-Idade</Label>
+                      <Input id="bioAge" type="number" value={formData.bioAge} onChange={(e) => setFormData({...formData, bioAge: e.target.value})} className="h-9" />
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-2 p-2 bg-primary/5 rounded-md border border-primary/10">
+                    <Checkbox id="consent" checked={formData.lgpdConsent} onCheckedChange={(checked) => setFormData({...formData, lgpdConsent: !!checked})} className="mt-1" />
+                    <label htmlFor="consent" className="text-[10px] font-medium leading-tight text-slate-600">
+                      Autorizo o tratamento de dados sensíveis para fins de diagnóstico e prescrição farmacêutica conforme LGPD.
+                    </label>
                   </div>
                 </div>
-                <div className="flex items-start space-x-2 p-3 bg-secondary/5 rounded-lg border border-slate-100">
-                  <Checkbox id="consent" checked={formData.lgpdConsent} onCheckedChange={(checked) => setFormData({...formData, lgpdConsent: !!checked})} className="mt-1" />
-                  <label htmlFor="consent" className="text-xs font-medium leading-tight cursor-pointer text-slate-600">
-                    O paciente confirma que autoriza o tratamento de dados sensíveis para fins de diagnóstico e prescrição farmacêutica.
-                  </label>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="submit" className="bg-primary text-white w-full py-6 md:py-2 font-bold shadow-md" disabled={isSubmitting}>
-                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : editingPatientId ? <Pencil className="h-4 w-4 mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-                  {editingPatientId ? "Atualizar Registro" : "Finalizar Cadastro"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <DialogFooter>
+                  <Button type="submit" className="bg-primary text-white w-full font-bold" disabled={isSubmitting}>
+                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : editingPatientId ? <Pencil className="h-4 w-4 mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                    {editingPatientId ? "Atualizar Prontuário" : "Finalizar Cadastro"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </header>
 
-      <div className="flex flex-col sm:flex-row gap-3 justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-100">
-        <div className="relative w-full sm:w-96">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input 
-            placeholder="Buscar por nome, e-mail ou CPF..." 
-            className="pl-10 border-none bg-secondary/10 h-11 text-sm"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+      {/* Barra de Ferramentas e Filtros Clínicos */}
+      <div className="flex flex-col sm:flex-row gap-2 justify-between items-center bg-white p-2 rounded-lg shadow-sm border border-slate-100">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input 
+              placeholder="Pesquisar..." 
+              className="pl-8 border-none bg-secondary/10 h-8 text-xs focus:ring-1"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="h-4 w-px bg-slate-200 hidden sm:block" />
+          <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
+            <Button 
+              variant={activeFilter === 'all' ? 'secondary' : 'ghost'} 
+              size="sm" 
+              className="h-7 text-[10px] font-bold px-2"
+              onClick={() => setActiveFilter('all')}
+            >
+              TODOS
+            </Button>
+            <Button 
+              variant={activeFilter === 'today' ? 'secondary' : 'ghost'} 
+              size="sm" 
+              className="h-7 text-[10px] font-bold px-2"
+              onClick={() => setActiveFilter('today')}
+            >
+              <Clock className="h-3 w-3 mr-1" /> ATENDIDOS HOJE
+            </Button>
+            <Button 
+              variant={activeFilter === 'active' ? 'secondary' : 'ghost'} 
+              size="sm" 
+              className="h-7 text-[10px] font-bold px-2"
+              onClick={() => setActiveFilter('active')}
+            >
+              <CheckCircle2 className="h-3 w-3 mr-1" /> BASE ATIVA
+            </Button>
+          </div>
         </div>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={handleRevealSensitive}
-          className={cn(
-            "w-full sm:w-auto border-primary/20 h-11 sm:h-9 font-bold",
-            showSensitive ? "bg-primary text-white" : "text-primary"
-          )}
-        >
-          {showSensitive ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
-          {showSensitive ? "Ocultar Dados" : "Revelar Dados Auditados"}
-        </Button>
       </div>
 
-      {/* Desktop View */}
-      <div className="hidden md:block bg-white rounded-2xl shadow-md overflow-hidden border border-slate-100">
+      {/* Data Grid de Alta Densidade (Desktop) */}
+      <div className="hidden md:block bg-white rounded-lg shadow-sm overflow-hidden border border-slate-100">
         <Table>
           <TableHeader className="bg-secondary/5">
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="font-bold text-primary text-[11px] uppercase py-4">Paciente</TableHead>
-              <TableHead className="font-bold text-primary text-[11px] uppercase">CPF Auditado</TableHead>
-              <TableHead className="font-bold text-primary text-[11px] uppercase text-center">Idade / Bio</TableHead>
-              <TableHead className="font-bold text-primary text-[11px] uppercase">Última Consulta</TableHead>
-              <TableHead className="text-right py-4 pr-6"></TableHead>
+            <TableRow className="hover:bg-transparent h-10">
+              <TableHead className="font-bold text-primary text-[10px] uppercase py-2">Paciente / Identificação</TableHead>
+              <TableHead className="font-bold text-primary text-[10px] uppercase">CPF (Auditado)</TableHead>
+              <TableHead className="font-bold text-primary text-[10px] uppercase text-center">Idade (Real/Bio)</TableHead>
+              <TableHead className="font-bold text-primary text-[10px] uppercase">Última Visita</TableHead>
+              <TableHead className="font-bold text-primary text-[10px] uppercase">Status / Tags</TableHead>
+              <TableHead className="text-right py-2 pr-4 font-bold text-primary text-[10px] uppercase">Ações Clínicas</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredPatients.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-12 text-muted-foreground italic">
-                  Nenhum registro ativo encontrado para os critérios de busca.
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground italic text-xs">
+                  Nenhum registro localizado no critério selecionado.
                 </TableCell>
               </TableRow>
             ) : (
-              filteredPatients.map((patient) => (
-                <TableRow key={patient.id} className="hover:bg-primary/5 transition-colors group">
-                  <TableCell className="py-4">
+              filteredPatients.map((p) => (
+                <TableRow key={p.id} className="hover:bg-primary/5 transition-colors h-12 border-b">
+                  <TableCell className="py-2">
                     <div className="flex flex-col">
-                      <span className="font-bold text-slate-900 group-hover:text-primary transition-colors">{patient.name}</span>
-                      <span className="text-xs text-muted-foreground">{patient.email}</span>
+                      <span className="font-bold text-slate-900 text-xs">{p.name}</span>
+                      <span className="text-[10px] text-muted-foreground truncate max-w-[150px]">{p.email}</span>
                     </div>
                   </TableCell>
-                  <TableCell className="font-mono text-xs">{maskCPF(patient.cpf)}</TableCell>
+                  <TableCell className="font-mono text-[11px] text-slate-600">
+                    {showSensitive ? p.cpf : p.cpf?.replace(/\d(?=\d{4})/g, "*")}
+                  </TableCell>
                   <TableCell>
-                    <div className="flex items-center justify-center gap-2">
-                      <span className="text-slate-600 font-medium">{patient.chronoAge}</span>
-                      <ArrowRightLeft className="h-3 w-3 text-muted-foreground" />
+                    <div className="flex items-center justify-center gap-2 text-xs">
+                      <span className="font-medium text-slate-500">{p.chronoAge}</span>
+                      <ArrowRightLeft className="h-3 w-3 text-slate-300" />
                       <span className={cn(
                         "font-bold",
-                        patient.bioAge < patient.chronoAge ? "text-emerald-600" : 
-                        patient.bioAge > patient.chronoAge ? "text-red-600" : "text-slate-900"
-                      )}>{patient.bioAge}</span>
+                        p.bioAge < p.chronoAge ? "text-emerald-600" : 
+                        p.bioAge > p.chronoAge ? "text-rose-600" : "text-slate-900"
+                      )}>{p.bioAge}</span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-sm font-medium text-slate-600">{patient.lastConsultation}</TableCell>
-                  <TableCell className="text-right pr-6">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-white hover:shadow-sm"><MoreHorizontal className="h-4 w-4" /></Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuLabel className="text-xs text-muted-foreground uppercase">Ações Clínicas</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="cursor-pointer py-2.5" onClick={() => router.push(`/patients/${patient.id}`)}>
-                          <UserCircle className="h-4 w-4 mr-2 text-primary" /> Abrir Prontuário
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="cursor-pointer py-2.5" onClick={() => router.push(`/patients/${patient.id}?tab=evolution`)}>
-                          <History className="h-4 w-4 mr-2 text-slate-400" /> Nova Evolução
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="cursor-pointer py-2.5" onClick={() => handleOpenEdit(patient)}>
-                          <Pencil className="h-4 w-4 mr-2 text-slate-400" /> Editar Registro
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem 
-                          className="cursor-pointer py-2.5 text-red-600 focus:text-red-700 focus:bg-red-50" 
-                          onClick={() => handleArchivePatient(patient.id, patient.name)}
-                        >
-                          <Archive className="h-4 w-4 mr-2" /> Arquivar Registro
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                  <TableCell className="text-[11px] font-bold text-slate-600">
+                    {p.lastConsultation === todayStr ? (
+                      <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-none text-[9px] h-4 font-bold">HOJE</Badge>
+                    ) : p.lastConsultation}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      <Badge className="bg-emerald-100 text-emerald-800 border-none text-[8px] h-4 py-0 uppercase font-bold">Ativo</Badge>
+                      {p.bioAge < p.chronoAge && (
+                        <Badge className="bg-blue-50 text-blue-700 border-none text-[8px] h-4 py-0 uppercase font-bold">Longevidade</Badge>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right pr-4">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:bg-primary/10" onClick={() => router.push(`/patients/${p.id}`)}>
+                              <UserCircle className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent><p className="text-[10px]">Prontuário</p></TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600 hover:bg-emerald-50" onClick={() => router.push(`/patients/${p.id}?tab=evolution`)}>
+                              <History className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent><p className="text-[10px]">Evolução</p></TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-accent hover:bg-accent/10" onClick={() => router.push(`/patients/${p.id}?tab=prescriptions`)}>
+                              <Pill className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent><p className="text-[10px]">Receita</p></TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500 hover:bg-blue-50">
+                              <MessageCircle className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent><p className="text-[10px]">WhatsApp</p></TooltipContent>
+                        </Tooltip>
+
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7"><MoreHorizontal className="h-4 w-4" /></Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuLabel className="text-[10px] uppercase text-muted-foreground">Admin</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => handleOpenEdit(p)} className="text-xs">
+                              <Pencil className="h-3 w-3 mr-2" /> Editar Cadastro
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleArchivePatient(p.id, p.name)} className="text-xs text-red-600">
+                              <Archive className="h-3 w-3 mr-2" /> Arquivar Registro
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TooltipProvider>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -449,74 +491,58 @@ export default function PatientsPage() {
         </Table>
       </div>
 
-      {/* Mobile View (Cards) */}
-      <div className="md:hidden space-y-4">
-        {filteredPatients.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-xl border border-dashed text-muted-foreground">
-            Nenhum paciente ativo encontrado.
-          </div>
-        ) : (
-          filteredPatients.map((patient) => (
-            <Card key={patient.id} className="border-none shadow-sm bg-white overflow-hidden active:scale-[0.98] transition-transform">
-              <CardContent className="p-5 space-y-4">
-                <div className="flex justify-between items-start">
-                  <div className="flex gap-3">
-                    <div className="bg-primary/10 p-2 rounded-lg" onClick={() => router.push(`/patients/${patient.id}`)}>
-                      <User className="h-5 w-5 text-primary" />
-                    </div>
-                    <div onClick={() => router.push(`/patients/${patient.id}`)}>
-                      <h3 className="font-bold text-slate-900 leading-tight">{patient.name}</h3>
-                      <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
-                        <Mail className="h-3 w-3" /> {patient.email}
-                      </div>
-                    </div>
+      {/* Mobile-First Action Cards (Mobile View) */}
+      <div className="md:hidden space-y-3">
+        {filteredPatients.map((p) => (
+          <Card key={p.id} className="border-none shadow-sm bg-white overflow-hidden">
+            <CardContent className="p-3 space-y-3">
+              <div className="flex justify-between items-start">
+                <div className="flex gap-2">
+                  <div className="bg-primary/10 p-2 rounded-lg" onClick={() => router.push(`/patients/${p.id}`)}>
+                    <User className="h-4 w-4 text-primary" />
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 -mt-1 -mr-2"><MoreHorizontal className="h-4 w-4" /></Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-64">
-                      <DropdownMenuItem className="py-3" onClick={() => router.push(`/patients/${patient.id}`)}>Abrir Prontuário</DropdownMenuItem>
-                      <DropdownMenuItem className="py-3" onClick={() => router.push(`/patients/${patient.id}?tab=evolution`)}>Nova Evolução</DropdownMenuItem>
-                      <DropdownMenuItem className="py-3" onClick={() => handleOpenEdit(patient)}>Editar Registro</DropdownMenuItem>
-                      <DropdownMenuItem className="py-3 text-red-600 font-medium" onClick={() => handleArchivePatient(patient.id, patient.name)}>Arquivar Registro</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-sm leading-tight">{p.name}</h3>
+                    <p className="text-[10px] text-muted-foreground">{p.email}</p>
+                  </div>
                 </div>
+                <Badge variant="outline" className="text-[9px] h-4 font-bold border-emerald-200 text-emerald-700">ATIVO</Badge>
+              </div>
 
-                <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-50">
-                  <div className="space-y-1">
-                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Identificação</p>
-                    <p className="text-xs font-mono flex items-center gap-1.5">
-                      <Fingerprint className="h-3 w-3 text-slate-300" />
-                      {maskCPF(patient.cpf)}
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Idade / Bio</p>
-                    <div className="flex items-center gap-2 text-xs font-bold">
-                      <span className="text-slate-600">{patient.chronoAge}</span>
-                      <ArrowRightLeft className="h-3 w-3 text-slate-300" />
-                      <span className={cn(
-                        patient.bioAge < patient.chronoAge ? "text-emerald-600" : 
-                        patient.bioAge > patient.chronoAge ? "text-red-600" : "text-slate-900"
-                      )}>{patient.bioAge}</span>
-                    </div>
-                  </div>
+              <div className="grid grid-cols-2 gap-2 py-2 border-y border-slate-50">
+                <div className="text-center">
+                  <p className="text-[8px] uppercase font-bold text-slate-400">Idade / Bio</p>
+                  <p className="text-xs font-bold text-primary">{p.chronoAge} / <span className={p.bioAge < p.chronoAge ? "text-emerald-600" : "text-rose-600"}>{p.bioAge}</span></p>
                 </div>
+                <div className="text-center">
+                  <p className="text-[8px] uppercase font-bold text-slate-400">Última Visita</p>
+                  <p className="text-xs font-bold text-slate-600">{p.lastConsultation}</p>
+                </div>
+              </div>
 
-                <div className="flex items-center justify-between pt-2">
-                   <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-none text-[10px] py-0 h-5 font-bold">Ativo</Badge>
-                   </div>
-                   <span className="text-[10px] text-muted-foreground font-medium italic">
-                    Visita: {patient.lastConsultation}
-                   </span>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
+              <div className="flex items-center justify-between gap-1">
+                <Button size="sm" variant="secondary" className="h-8 flex-1 text-[10px] font-bold gap-1" onClick={() => router.push(`/patients/${p.id}`)}>
+                  <UserCircle className="h-3 w-3" /> PRONTUÁRIO
+                </Button>
+                <Button size="sm" variant="outline" className="h-8 flex-1 text-[10px] font-bold gap-1 border-primary/20 text-primary" onClick={() => router.push(`/patients/${p.id}?tab=evolution`)}>
+                  <History className="h-3 w-3" /> EVOLUÇÃO
+                </Button>
+                <Button size="sm" variant="ghost" className="h-8 w-10 p-0 text-blue-500">
+                  <MessageCircle className="h-4 w-4" />
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onClick={() => handleOpenEdit(p)}>Editar</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleArchivePatient(p.id, p.name)} className="text-red-600">Arquivar</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     </div>
   );
