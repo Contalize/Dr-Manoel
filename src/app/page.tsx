@@ -66,7 +66,13 @@ export default function Dashboard() {
     };
     checkConn();
 
-    const unsubscribePatients = onSnapshot(collection(db, "patients"), (snapshot) => {
+    // FILTRO DE PACIENTES ATIVOS PARA DASHBOARD
+    const qPatients = query(
+      collection(db, "patients"), 
+      where("status", "==", "active")
+    );
+
+    const unsubscribePatients = onSnapshot(qPatients, (snapshot) => {
       setPatientCount(snapshot.size);
       
       const patientsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
