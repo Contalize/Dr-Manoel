@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect, useMemo } from "react";
@@ -10,7 +11,9 @@ import {
   serverTimestamp, 
   updateDoc, 
   doc, 
-  where 
+  where,
+  limit,
+  orderBy
 } from "firebase/firestore";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
@@ -86,6 +89,7 @@ export default function PatientsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showSensitive, setShowSensitive] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeFilter, setActiveFilter] = useState<'all' | 'today' | 'active'>('all');
@@ -119,18 +123,39 @@ export default function PatientsPage() {
     }
   }, [chronoAgeCalculated]);
 
+  // Efeito de Inicialização da UI (Montagem Imediata)
   useEffect(() => {
     setMounted(true);
-    const q = query(collection(db, "patients"), where("status", "==", "active"));
+  }, []);
+
+  // Efeito de Busca Assíncrona (onSnapshot desacoplado com limite)
+  useEffect(() => {
+    if (!mounted) return;
+
+    setIsInitialLoading(true);
+    
+    // Consulta otimizada: Apenas ativos, limitados aos 20 mais recentes para performance
+    const q = query(
+      collection(db, "patients"), 
+      where("status", "==", "active"),
+      orderBy("name"),
+      limit(20)
+    );
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const patientList = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Patient[];
       setPatients(patientList);
+      setIsInitialLoading(false);
+    }, (error) => {
+      console.error("Erro ao carregar pacientes:", error);
+      setIsInitialLoading(false);
     });
+
     return () => unsubscribe();
-  }, []);
+  }, [mounted]);
 
   const handleRevealSensitive = async () => {
     const newState = !showSensitive;
@@ -376,7 +401,16 @@ export default function PatientsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredPatients.length === 0 ? (
+            {isInitialLoading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-12">
+                  <div className="flex flex-col items-center gap-2">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <span className="text-xs font-bold text-primary uppercase tracking-widest">Sincronizando Base de Dados...</span>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : filteredPatients.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-8 text-muted-foreground italic text-xs">
                   Nenhum registro localizado no critério selecionado.

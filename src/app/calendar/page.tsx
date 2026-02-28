@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { db } from "@/firebase/config";
-import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { collection, onSnapshot, query, orderBy, where, limit } from "firebase/firestore";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -46,17 +46,40 @@ export default function CalendarPage() {
   const [mounted, setMounted] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     setMounted(true);
-    const q = query(collection(db, "appointments"), orderBy("time"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setAppointments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Appointment)));
-    });
-    return () => unsubscribe();
   }, []);
 
-  // Definição dos Slots de Atendimento (08:00 às 19:00)
+  const selectedDateStr = date ? format(date, "yyyy-MM-dd") : "";
+
+  // Busca Reativa Otimizada (Filtro de data no servidor + Limite de segurança)
+  useEffect(() => {
+    if (!mounted || !selectedDateStr) return;
+
+    setIsLoading(true);
+    
+    // Consulta performática: busca apenas agendamentos do dia selecionado
+    const q = query(
+      collection(db, "appointments"), 
+      where("date", "==", selectedDateStr),
+      orderBy("time"),
+      limit(50) // Limite generoso para um dia de clínica mas protetor para o servidor
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setAppointments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Appointment)));
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Erro na busca da agenda:", error);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [mounted, selectedDateStr]);
+
+  // Slots de Atendimento fixos (não dependem de dados do Firebase)
   const timeSlots = useMemo(() => {
     const slots = [];
     for (let i = 8; i <= 19; i++) {
@@ -64,16 +87,13 @@ export default function CalendarPage() {
     }
     return slots;
   }, []);
-
-  const selectedDateStr = date ? format(date, "yyyy-MM-dd") : "";
   
   const filteredAppointments = useMemo(() => {
-    return appointments.filter(app => {
-      const matchesDate = app.date === selectedDateStr;
-      const matchesSearch = app.patientName.toLowerCase().includes(searchTerm.toLowerCase());
-      return matchesDate && matchesSearch;
-    });
-  }, [appointments, selectedDateStr, searchTerm]);
+    if (!searchTerm) return appointments;
+    return appointments.filter(app => 
+      app.patientName.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [appointments, searchTerm]);
 
   const getStatusConfig = (status: Appointment['status']) => {
     const configs = {
@@ -171,7 +191,7 @@ export default function CalendarPage() {
                   <Badge className="bg-emerald-50 text-emerald-700 border-none font-bold">Hoje</Badge>
                 </CardTitle>
                 <CardDescription className="font-medium text-slate-500">
-                  {filteredAppointments.length} atendimentos programados para este ciclo.
+                  {isLoading ? "Sincronizando agenda..." : `${filteredAppointments.length} atendimentos programados para este ciclo.`}
                 </CardDescription>
               </div>
               <div className="relative w-full md:w-64">
@@ -188,7 +208,14 @@ export default function CalendarPage() {
             <CardContent className="p-0">
               <ScrollArea className="h-[600px] w-full">
                 <div className="p-6 space-y-0">
-                  {timeSlots.map((slot) => {
+                  {isLoading && (
+                    <div className="flex flex-col items-center justify-center py-20 gap-3">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary opacity-20" />
+                      <p className="text-[10px] font-bold text-primary/30 uppercase tracking-widest">Lendo Prontuários...</p>
+                    </div>
+                  )}
+                  
+                  {!isLoading && timeSlots.map((slot) => {
                     const appsInSlot = filteredAppointments.filter(app => {
                       const appHour = app.time.split(':')[0];
                       const slotHour = slot.split(':')[0];
