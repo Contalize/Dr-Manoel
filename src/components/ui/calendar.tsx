@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -23,49 +24,39 @@ function Calendar({
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
-        caption: "flex justify-center pt-1 relative items-center",
+        month_caption: "flex justify-center pt-1 relative items-center mb-4",
         caption_label: "text-sm font-bold text-primary",
         nav: "space-x-1 flex items-center",
-        nav_button: cn(
+        button_previous: cn(
           buttonVariants({ variant: "outline" }),
-          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 border-primary/20"
+          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 border-primary/20 absolute left-1 z-10"
         ),
-        nav_button_previous: "absolute left-1",
-        nav_button_next: "absolute right-1",
-        table: "w-full border-collapse",
-        head_row: "flex w-full justify-between mb-2",
-        head_cell: "text-muted-foreground rounded-md w-9 font-bold text-[0.7rem] uppercase tracking-tighter",
-        row: "flex w-full mt-2 justify-between",
-        cell: cn(
-          "relative p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-accent/20 rounded-md transition-all",
-          props.mode === "range"
-            ? "[&:has(>.day-range-end)]:rounded-r-md [&:has(>.day-range-start)]:rounded-l-md first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md"
-            : "[&:has([aria-selected])]:rounded-md"
+        button_next: cn(
+          buttonVariants({ variant: "outline" }),
+          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 border-primary/20 absolute right-1 z-10"
         ),
+        month_grid: "w-full border-collapse space-y-1",
+        weekdays: "flex w-full justify-between mb-2",
+        weekday: "text-muted-foreground rounded-md w-9 font-bold text-[0.7rem] uppercase tracking-tighter text-center",
+        week: "flex w-full mt-2 justify-between",
         day: cn(
           buttonVariants({ variant: "ghost" }),
-          "h-9 w-9 p-0 font-normal aria-selected:opacity-100 hover:bg-primary/10"
+          "h-9 w-9 p-0 font-normal aria-selected:opacity-100 hover:bg-primary/10 rounded-md transition-all text-center flex items-center justify-center"
         ),
-        day_range_start: "day-range-start",
-        day_range_end: "day-range-end",
-        day_selected:
-          "bg-primary text-white hover:bg-primary hover:text-white focus:bg-primary focus:text-white rounded-md shadow-sm",
-        day_today: "bg-accent/20 text-accent-foreground font-bold border border-accent/30",
-        day_outside:
-          "day-outside text-muted-foreground opacity-50 aria-selected:bg-accent/50 aria-selected:text-muted-foreground aria-selected:opacity-30",
-        day_disabled: "text-muted-foreground opacity-50",
-        day_range_middle:
-          "aria-selected:bg-accent aria-selected:text-accent-foreground",
-        day_hidden: "invisible",
+        day_button: "h-9 w-9 p-0 font-normal w-full flex items-center justify-center",
+        selected: "bg-primary text-white hover:bg-primary hover:text-white focus:bg-primary focus:text-white rounded-md shadow-sm",
+        today: "bg-accent/20 text-accent-foreground font-bold border border-accent/30",
+        outside: "text-muted-foreground opacity-50",
+        disabled: "text-muted-foreground opacity-50",
+        range_middle: "aria-selected:bg-accent aria-selected:text-accent-foreground",
+        hidden: "invisible",
         ...classNames,
       }}
       components={{
-        IconLeft: () => (
-          <ChevronLeft className="h-4 w-4 text-primary" />
-        ),
-        IconRight: () => (
-          <ChevronRight className="h-4 w-4 text-primary" />
-        ),
+        Chevron: (props) => {
+          if (props.orientation === "left") return <ChevronLeft className="h-4 w-4 text-primary" />;
+          return <ChevronRight className="h-4 w-4 text-primary" />;
+        }
       }}
       {...props}
     />

@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { db } from "@/firebase/config";
-import { collection, onSnapshot, query, orderBy, where, limit } from "firebase/firestore";
+import { collection, onSnapshot, query, where, limit } from "firebase/firestore";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,6 @@ import {
   Clock, 
   User, 
   Plus, 
-  ChevronRight,
   Calendar as CalendarIcon,
   Search,
   CheckCircle2,
@@ -26,7 +25,7 @@ import {
   MoreVertical
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format, startOfDay, addHours, isSameHour, parse } from "date-fns";
+import { format, startOfDay, addHours } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
@@ -54,13 +53,12 @@ export default function CalendarPage() {
 
   const selectedDateStr = date ? format(date, "yyyy-MM-dd") : "";
 
-  // Busca Reativa Otimizada (Filtro simples para evitar erro de índice composto)
   useEffect(() => {
     if (!mounted || !selectedDateStr) return;
 
     setIsLoading(true);
     
-    // Consulta por índice simples (date)
+    // Consulta otimizada por data
     const q = query(
       collection(db, "appointments"), 
       where("date", "==", selectedDateStr),
@@ -68,7 +66,6 @@ export default function CalendarPage() {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      // Ordenação secundária feita no cliente para evitar necessidade de índice composto
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Appointment));
       data.sort((a, b) => a.time.localeCompare(b.time));
       
@@ -124,15 +121,12 @@ export default function CalendarPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-12">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-12 md:pt-0">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-8">
         <div>
-          <h1 className="text-3xl font-bold text-primary font-headline tracking-tight">Agenda Clínica Profissional</h1>
-          <p className="text-muted-foreground">Gestão de alta performance e fluxo de atendimento.</p>
+          <h1 className="text-3xl font-bold text-primary font-headline tracking-tight">Agenda Clínica</h1>
+          <p className="text-muted-foreground">Gestão de atendimentos para {date ? format(date, "dd 'de' MMMM", { locale: ptBR }) : ""}.</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" className="border-primary/20 text-primary hidden md:flex">
-            <CalendarIcon className="h-4 w-4 mr-2" /> Visão Mensal
-          </Button>
           <Button className="bg-accent text-white hover:bg-accent/90 shadow-lg px-6 font-bold">
             <Plus className="h-4 w-4 mr-2" /> Novo Agendamento
           </Button>
@@ -161,7 +155,7 @@ export default function CalendarPage() {
 
           <Card className="border-none shadow-md bg-white">
             <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Resumo Operacional</CardTitle>
+              <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Resumo do Dia</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-between items-center p-3 bg-secondary/5 rounded-xl border border-dashed">
@@ -188,17 +182,16 @@ export default function CalendarPage() {
               <div>
                 <CardTitle className="text-primary font-headline text-2xl flex items-center gap-3">
                   {date ? format(date, "EEEE, dd 'de' MMMM", { locale: ptBR }) : "Selecione uma data"}
-                  <Badge className="bg-emerald-50 text-emerald-700 border-none font-bold">Hoje</Badge>
                 </CardTitle>
                 <CardDescription className="font-medium text-slate-500">
-                  {isLoading ? "Sincronizando agenda..." : `${filteredAppointments.length} atendimentos programados para este ciclo.`}
+                  {isLoading ? "Sincronizando agenda..." : `${filteredAppointments.length} atendimentos programados.`}
                 </CardDescription>
               </div>
               <div className="relative w-full md:w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
                   placeholder="Pesquisar paciente..." 
-                  className="pl-10 bg-secondary/5 border-none h-11 text-sm rounded-xl focus:ring-primary"
+                  className="pl-10 bg-secondary/5 border-none h-11 text-sm rounded-xl"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -211,7 +204,7 @@ export default function CalendarPage() {
                   {isLoading && (
                     <div className="flex flex-col items-center justify-center py-20 gap-3">
                       <Loader2 className="h-8 w-8 animate-spin text-primary opacity-20" />
-                      <p className="text-[10px] font-bold text-primary/30 uppercase tracking-widest">Lendo Prontuários...</p>
+                      <p className="text-[10px] font-bold text-primary/30 uppercase tracking-widest">Lendo Agenda...</p>
                     </div>
                   )}
                   
@@ -233,7 +226,7 @@ export default function CalendarPage() {
                           {appsInSlot.length === 0 ? (
                             <div className="h-full border-t border-slate-50 pt-2 opacity-0 group-hover:opacity-100 transition-opacity">
                               <Button variant="ghost" size="sm" className="text-[10px] text-slate-400 font-bold uppercase tracking-widest hover:text-primary">
-                                <Plus className="h-3 w-3 mr-1" /> Adicionar encaixe
+                                <Plus className="h-3 w-3 mr-1" /> Encaixe
                               </Button>
                             </div>
                           ) : (
@@ -256,7 +249,6 @@ export default function CalendarPage() {
                                         <div className="flex items-center gap-2">
                                           <h4 className="font-bold text-slate-900 text-lg leading-none">{app.patientName}</h4>
                                           <Badge variant="outline" className={cn("text-[9px] uppercase font-bold px-2 py-0 h-4 border-none", status.color)}>
-                                            <status.icon className="h-2 w-2 mr-1" />
                                             {status.label}
                                           </Badge>
                                         </div>
@@ -265,7 +257,6 @@ export default function CalendarPage() {
                                             <Clock className="h-3 w-3" /> {app.time}
                                           </span>
                                           <span className="text-xs text-slate-400 font-medium flex items-center gap-1 uppercase tracking-tighter">
-                                            {app.type.includes('Consulta') ? <Stethoscope className="h-3 w-3" /> : <Droplets className="h-3 w-3" />}
                                             {app.type}
                                           </span>
                                         </div>
@@ -273,7 +264,7 @@ export default function CalendarPage() {
                                     </div>
 
                                     <div className="flex items-center gap-2">
-                                      <Button variant="outline" size="sm" className="h-9 w-9 p-0 border-emerald-200 text-emerald-600 hover:bg-emerald-50 rounded-lg">
+                                      <Button variant="outline" size="sm" className="h-9 w-9 p-0 text-emerald-600 hover:bg-emerald-50 rounded-lg">
                                         <MessageCircle className="h-4 w-4" />
                                       </Button>
                                       <Link href={app.patientId ? `/patients/${app.patientId}` : '#'}>
@@ -282,9 +273,6 @@ export default function CalendarPage() {
                                           Atender
                                         </Button>
                                       </Link>
-                                      <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400">
-                                        <MoreVertical className="h-4 w-4" />
-                                      </Button>
                                     </div>
                                   </div>
                                 </div>
