@@ -1,11 +1,10 @@
-
 "use client"
 
 import * as React from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm, useFieldArray } from "react-hook-form"
 import * as z from "zod"
-import { Check, ChevronsUpDown, Loader2, Plus, Trash2, Pill, Save, Search, Info } from "lucide-react"
+import { Check, ChevronsUpDown, Loader2, Plus, Trash2, Pill, Save, Search, Info, UserCheck } from "lucide-react"
 import { db } from "@/firebase/config"
 import { collection, addDoc, serverTimestamp, getDocs, query, where } from "firebase/firestore"
 import { cn } from "@/lib/utils"
@@ -35,7 +34,7 @@ import {
   FormLabel,
   FormMessage,
   FormDescription,
-} from "@/components/ui/form"
+} from "@/form"
 import {
   Popover,
   PopoverContent,
@@ -51,6 +50,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { logAction } from "@/lib/audit"
+import { useClinic } from "@/contexts/ClinicContext"
 
 // Base de Dados de Medicamentos e Suplementos (Healthcare MVP)
 const MEDICATIONS_DB = [
@@ -93,6 +93,9 @@ const prescriptionFormSchema = z.object({
   patientId: z.string({
     required_error: "Selecione um paciente.",
   }),
+  professionalId: z.string({
+    required_error: "Selecione o profissional responsável.",
+  }),
   notes: z.string().optional(),
   medications: z.array(medicationSchema).min(1, "Adicione pelo menos um medicamento"),
 })
@@ -119,11 +122,13 @@ export function NewPrescriptionDialog({ initialPatientId, initialPatientName, tr
   const [openMedicationIndex, setOpenMedicationIndex] = React.useState<number | null>(null)
   
   const { toast } = useToast()
+  const { professionals } = useClinic()
 
   const form = useForm<PrescriptionFormValues>({
     resolver: zodResolver(prescriptionFormSchema),
     defaultValues: {
       patientId: initialPatientId || "",
+      professionalId: "",
       notes: "",
       medications: [{ nome: "", posologia: "", via: "VO", orientacoes: "" }],
     },
@@ -163,10 +168,14 @@ export function NewPrescriptionDialog({ initialPatientId, initialPatientName, tr
     try {
       const selectedPatient = patients.find(p => p.id === values.patientId)
       const patientName = initialPatientName || selectedPatient?.name || "Desconhecido"
+      const selectedProf = professionals.find(p => p.id === values.professionalId)
 
       await addDoc(collection(db, "prescriptions"), {
         patientId: values.patientId,
         patientName,
+        professionalId: values.professionalId,
+        professionalName: selectedProf?.name || "Desconhecido",
+        professionalRegistration: selectedProf?.registration || "",
         date: serverTimestamp(),
         medications: values.medications,
         notes: values.notes || "",
@@ -174,6 +183,7 @@ export function NewPrescriptionDialog({ initialPatientId, initialPatientName, tr
 
       await logAction("EMISSAO_RECEITUARIO", values.patientId, { 
         paciente: patientName,
+        profissional: selectedProf?.name,
         itens: values.medications.length 
       })
 
@@ -184,6 +194,7 @@ export function NewPrescriptionDialog({ initialPatientId, initialPatientName, tr
       
       form.reset({
         patientId: initialPatientId || "",
+        professionalId: "",
         notes: "",
         medications: [{ nome: "", posologia: "", via: "VO", orientacoes: "" }],
       })
@@ -220,71 +231,106 @@ export function NewPrescriptionDialog({ initialPatientId, initialPatientName, tr
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 py-4">
-            {/* Seção do Paciente */}
-            <div className="bg-primary/5 p-4 rounded-xl border border-primary/10">
-              <FormField
-                control={form.control}
-                name="patientId"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel className="text-xs font-bold uppercase tracking-wider text-primary">Paciente Identificado</FormLabel>
-                    {initialPatientId ? (
-                      <div className="p-3 bg-white rounded-lg border border-primary/20 flex items-center gap-3">
-                        <div className="bg-primary/10 p-2 rounded-full"><Search className="h-4 w-4 text-primary" /></div>
-                        <div>
-                          <p className="text-sm font-bold text-slate-900">{initialPatientName}</p>
-                          <p className="text-[10px] text-muted-foreground">REGISTRO CLÍNICO ATIVO</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Seção do Paciente */}
+              <div className="bg-primary/5 p-4 rounded-xl border border-primary/10">
+                <FormField
+                  control={form.control}
+                  name="patientId"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel className="text-xs font-bold uppercase tracking-wider text-primary">Paciente Identificado</FormLabel>
+                      {initialPatientId ? (
+                        <div className="p-3 bg-white rounded-lg border border-primary/20 flex items-center gap-3 h-11">
+                          <div className="bg-primary/10 p-1.5 rounded-full"><Search className="h-3 w-3 text-primary" /></div>
+                          <div>
+                            <p className="text-sm font-bold text-slate-900 leading-tight">{initialPatientName}</p>
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant="outline"
-                              role="combobox"
-                              className={cn(
-                                "w-full justify-between h-11 bg-white border-primary/20",
-                                !field.value && "text-muted-foreground"
-                              )}
-                            >
-                              {field.value
-                                ? patients.find((p) => p.id === field.value)?.name
-                                : "Pesquisar na base de pacientes..."}
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 shadow-2xl border-none">
-                          <Command filter={(value, search) => value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
-                            <CommandInput placeholder="Nome ou CPF..." className="h-12" />
-                            <CommandList className="max-h-[250px]">
-                              <CommandEmpty>{isSearching ? "Buscando..." : "Paciente não localizado."}</CommandEmpty>
-                              <CommandGroup>
-                                {patients.map((patient) => (
-                                  <CommandItem
-                                    value={patient.name}
-                                    key={patient.id}
-                                    onSelect={() => form.setValue("patientId", patient.id)}
-                                    className="p-3 cursor-pointer hover:bg-primary/5"
-                                  >
-                                    <Check className={cn("mr-2 h-4 w-4 text-primary", patient.id === field.value ? "opacity-100" : "opacity-0")} />
-                                    <div className="flex flex-col">
-                                      <span className="font-bold text-sm text-slate-900">{patient.name}</span>
-                                      <span className="text-[10px] font-medium text-muted-foreground uppercase">CPF: {patient.cpf}</span>
-                                    </div>
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                    )}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      ) : (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                className={cn(
+                                  "w-full justify-between h-11 bg-white border-primary/20",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                              >
+                                {field.value
+                                  ? patients.find((p) => p.id === field.value)?.name
+                                  : "Pesquisar paciente..."}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 shadow-2xl border-none">
+                            <Command filter={(value, search) => value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
+                              <CommandInput placeholder="Nome ou CPF..." className="h-12" />
+                              <CommandList className="max-h-[250px]">
+                                <CommandEmpty>{isSearching ? "Buscando..." : "Paciente não localizado."}</CommandEmpty>
+                                <CommandGroup>
+                                  {patients.map((patient) => (
+                                    <CommandItem
+                                      value={patient.name}
+                                      key={patient.id}
+                                      onSelect={() => form.setValue("patientId", patient.id)}
+                                      className="p-3 cursor-pointer hover:bg-primary/5"
+                                    >
+                                      <Check className={cn("mr-2 h-4 w-4 text-primary", patient.id === field.value ? "opacity-100" : "opacity-0")} />
+                                      <div className="flex flex-col">
+                                        <span className="font-bold text-sm text-slate-900">{patient.name}</span>
+                                        <span className="text-[10px] font-medium text-muted-foreground uppercase">CPF: {patient.cpf}</span>
+                                      </div>
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Seção do Profissional */}
+              <div className="bg-accent/5 p-4 rounded-xl border border-accent/10">
+                <FormField
+                  control={form.control}
+                  name="professionalId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-bold uppercase tracking-wider text-accent flex items-center gap-2">
+                        <UserCheck className="h-3 w-3" /> Profissional Responsável
+                      </FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="h-11 bg-white border-accent/20">
+                            <SelectValue placeholder="Selecione o prescritor..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {professionals.length === 0 ? (
+                            <SelectItem value="none" disabled>Nenhum profissional ativo</SelectItem>
+                          ) : (
+                            professionals.map((prof) => (
+                              <SelectItem key={prof.id} value={prof.id} className="text-xs">
+                                {prof.name} ({prof.registration})
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
 
             {/* Itens da Receita */}

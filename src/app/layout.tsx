@@ -1,8 +1,8 @@
-
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { DashboardSidebar } from '@/components/layout/DashboardSidebar';
 import { Toaster } from '@/components/ui/toaster';
+import { ClinicProvider } from '@/contexts/ClinicContext';
 
 export const metadata: Metadata = {
   title: 'PharmaZen | Clínica Integrativa Manoel da Farmácia',
@@ -37,11 +37,13 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" />
       </head>
       <body className="font-body antialiased flex h-screen bg-background overflow-hidden">
-        <DashboardSidebar />
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
-          {children}
-        </main>
-        <Toaster />
+        <ClinicProvider>
+          <DashboardSidebar />
+          <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
+            {children}
+          </main>
+          <Toaster />
+        </ClinicProvider>
       </body>
     </html>
   );
