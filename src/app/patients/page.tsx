@@ -28,7 +28,8 @@ import {
   Fingerprint,
   Pencil,
   Archive,
-  FileText
+  FileText,
+  UserCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -102,9 +103,15 @@ export default function PatientsPage() {
     }
   }, [formData.birthDate]);
 
+  // Atualiza Bio-Idade automaticamente quando a Idade Cronológica muda
+  useEffect(() => {
+    if (chronoAgeCalculated > 0 && !formData.bioAge) {
+      setFormData(prev => ({ ...prev, bioAge: chronoAgeCalculated.toString() }));
+    }
+  }, [chronoAgeCalculated]);
+
   useEffect(() => {
     setMounted(true);
-    // Filtrar apenas ativos por padrão ou mostrar todos
     const q = query(collection(db, "patients"), where("status", "==", "active"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const patientList = snapshot.docs.map(doc => ({
@@ -134,7 +141,7 @@ export default function PatientsPage() {
       birthDate: patient.birthDate,
       bioAge: patient.bioAge.toString(),
       gender: patient.gender || "Feminino",
-      lgpdConsent: true // Assumimos que já houve consentimento para estar na base
+      lgpdConsent: true
     });
     setIsDialogOpen(true);
   };
@@ -415,11 +422,11 @@ export default function PatientsPage() {
                       <DropdownMenuContent align="end" className="w-56">
                         <DropdownMenuLabel className="text-xs text-muted-foreground uppercase">Ações Clínicas</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="cursor-pointer py-2.5" onClick={() => router.push('/anamnesis')}>
-                          <FileText className="h-4 w-4 mr-2 text-slate-400" /> Abrir Prontuário
+                        <DropdownMenuItem className="cursor-pointer py-2.5" onClick={() => router.push(`/patients/${patient.id}`)}>
+                          <UserCircle className="h-4 w-4 mr-2 text-primary" /> Abrir Prontuário
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="cursor-pointer py-2.5" onClick={() => router.push('/anamnesis')}>
-                          <Plus className="h-4 w-4 mr-2 text-slate-400" /> Nova Anamnese
+                        <DropdownMenuItem className="cursor-pointer py-2.5" onClick={() => router.push(`/patients/${patient.id}?tab=evolution`)}>
+                          <History className="h-4 w-4 mr-2 text-slate-400" /> Nova Evolução
                         </DropdownMenuItem>
                         <DropdownMenuItem className="cursor-pointer py-2.5" onClick={() => handleOpenEdit(patient)}>
                           <Pencil className="h-4 w-4 mr-2 text-slate-400" /> Editar Registro
@@ -453,10 +460,10 @@ export default function PatientsPage() {
               <CardContent className="p-5 space-y-4">
                 <div className="flex justify-between items-start">
                   <div className="flex gap-3">
-                    <div className="bg-primary/10 p-2 rounded-lg">
+                    <div className="bg-primary/10 p-2 rounded-lg" onClick={() => router.push(`/patients/${patient.id}`)}>
                       <User className="h-5 w-5 text-primary" />
                     </div>
-                    <div>
+                    <div onClick={() => router.push(`/patients/${patient.id}`)}>
                       <h3 className="font-bold text-slate-900 leading-tight">{patient.name}</h3>
                       <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
                         <Mail className="h-3 w-3" /> {patient.email}
@@ -468,8 +475,8 @@ export default function PatientsPage() {
                       <Button variant="ghost" size="icon" className="h-8 w-8 -mt-1 -mr-2"><MoreHorizontal className="h-4 w-4" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-64">
-                      <DropdownMenuItem className="py-3" onClick={() => router.push('/anamnesis')}>Abrir Prontuário</DropdownMenuItem>
-                      <DropdownMenuItem className="py-3" onClick={() => router.push('/anamnesis')}>Nova Anamnese</DropdownMenuItem>
+                      <DropdownMenuItem className="py-3" onClick={() => router.push(`/patients/${patient.id}`)}>Abrir Prontuário</DropdownMenuItem>
+                      <DropdownMenuItem className="py-3" onClick={() => router.push(`/patients/${patient.id}?tab=evolution`)}>Nova Evolução</DropdownMenuItem>
                       <DropdownMenuItem className="py-3" onClick={() => handleOpenEdit(patient)}>Editar Registro</DropdownMenuItem>
                       <DropdownMenuItem className="py-3 text-red-600 font-medium" onClick={() => handleArchivePatient(patient.id, patient.name)}>Arquivar Registro</DropdownMenuItem>
                     </DropdownMenuContent>

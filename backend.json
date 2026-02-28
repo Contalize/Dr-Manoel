@@ -28,6 +28,25 @@
         "medicationHistory": { "type": "array", "description": "Histórico de medicamentos salvos" }
       }
     },
+    "evolutions": {
+      "description": "Linha do tempo de evolução clínica e procedimentos diários.",
+      "fields": {
+        "patientId": { "type": "string" },
+        "date": { "type": "timestamp" },
+        "type": { "type": "string", "description": "Soro, Queixa, Medicação, Procedimento" },
+        "description": { "type": "string" },
+        "professionalName": { "type": "string" }
+      }
+    },
+    "prescriptions": {
+      "description": "Receituário farmacêutico emitido.",
+      "fields": {
+        "patientId": { "type": "string" },
+        "date": { "type": "timestamp" },
+        "medications": { "type": "array", "description": "Lista de medicamentos com posologia" },
+        "notes": { "type": "string" }
+      }
+    },
     "medicamentos_referencia": {
       "description": "Base mestra de medicamentos sincronizada (ANVISA/Integrativa).",
       "fields": {
@@ -50,38 +69,6 @@
         "patientId": { "type": "string" },
         "timestamp": { "type": "timestamp" },
         "metadata": { "type": "object" }
-      }
-    },
-    "anamnesis": {
-      "description": "Registros de avaliação SOAP.",
-      "fields": {
-        "patientId": { "type": "string" },
-        "subjective": { "type": "object" },
-        "objective": { "type": "object" },
-        "markers": { "type": "object" },
-        "assessment": { "type": "string" },
-        "createdAt": { "type": "timestamp" }
-      }
-    },
-    "protocols": {
-      "description": "Protocolos de tratamento integrativo.",
-      "fields": {
-        "patientId": { "type": "string" },
-        "name": { "type": "string" },
-        "rationale": { "type": "string" },
-        "therapies": { "type": "array" },
-        "createdAt": { "type": "timestamp" }
-      }
-    },
-    "transactions": {
-      "description": "Registros financeiros da clínica.",
-      "fields": {
-        "patientId": { "type": "string" },
-        "patientName": { "type": "string" },
-        "amount": { "type": "number" },
-        "status": { "type": "string" },
-        "method": { "type": "string" },
-        "date": { "type": "string" }
       }
     }
   }
