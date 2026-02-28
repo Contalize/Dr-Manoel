@@ -10,7 +10,6 @@ import {
   onSnapshot, 
   query, 
   where, 
-  orderBy, 
   addDoc, 
   serverTimestamp 
 } from "firebase/firestore";
@@ -28,7 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { 
   User, 
   Calendar, 
-  History, 
+  History as HistoryIcon, 
   FileText, 
   Plus, 
   ClipboardCheck, 
@@ -99,32 +98,54 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
 
     // Busca Dados do Paciente
     const fetchPatient = async () => {
-      const docRef = doc(db, "patients", id);
-      const snap = await getDoc(docRef);
-      if (snap.exists()) {
-        setPatient({ id: snap.id, ...snap.data() });
+      try {
+        const docRef = doc(db, "patients", id);
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          setPatient({ id: snap.id, ...snap.data() });
+        }
+      } catch (e) {
+        console.error("Erro ao buscar paciente:", e);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
     // Listeners em tempo real para Evoluções
+    // Removendo orderBy da query para evitar erro de índice ausente; ordenação será feita no cliente.
     const qEvol = query(
       collection(db, "evolutions"), 
-      where("patientId", "==", id), 
-      orderBy("date", "desc")
+      where("patientId", "==", id)
     );
     const unsubEvol = onSnapshot(qEvol, (snap) => {
-      setEvolutions(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Evolution)));
+      const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Evolution));
+      // Ordenação manual por data decrescente
+      data.sort((a, b) => {
+        const timeA = a.date?.toMillis?.() || 0;
+        const timeB = b.date?.toMillis?.() || 0;
+        return timeB - timeA;
+      });
+      setEvolutions(data);
+    }, (error) => {
+      console.error("Erro no listener de evoluções:", error);
     });
 
     // Listeners para Prescrições
     const qPresc = query(
       collection(db, "prescriptions"), 
-      where("patientId", "==", id), 
-      orderBy("date", "desc")
+      where("patientId", "==", id)
     );
     const unsubPresc = onSnapshot(qPresc, (snap) => {
-      setPrescriptions(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Prescription)));
+      const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Prescription));
+      // Ordenação manual por data decrescente
+      data.sort((a, b) => {
+        const timeA = a.date?.toMillis?.() || 0;
+        const timeB = b.date?.toMillis?.() || 0;
+        return timeB - timeA;
+      });
+      setPrescriptions(data);
+    }, (error) => {
+      console.error("Erro no listener de prescrições:", error);
     });
 
     fetchPatient();
@@ -195,7 +216,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
       <Tabs defaultValue="evolution" className="w-full">
         <TabsList className="grid grid-cols-4 bg-white shadow-sm rounded-xl border p-1 h-auto mb-6">
           <TabsTrigger value="evolution" className="py-3 font-bold gap-2 data-[state=active]:bg-primary data-[state=active]:text-white rounded-lg transition-all">
-            <History className="h-4 w-4" /> Evolução Diária
+            <HistoryIcon className="h-4 w-4" /> Evolução Diária
           </TabsTrigger>
           <TabsTrigger value="prescriptions" className="py-3 font-bold gap-2 data-[state=active]:bg-primary data-[state=active]:text-white rounded-lg transition-all">
             <Pill className="h-4 w-4" /> Receituário
@@ -266,7 +287,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
           <div className="space-y-4">
             {evolutions.length === 0 ? (
               <Card className="border-dashed py-20 text-center">
-                <History className="h-12 w-12 text-slate-200 mx-auto mb-4" />
+                <HistoryIcon className="h-12 w-12 text-slate-200 mx-auto mb-4" />
                 <h3 className="text-lg font-bold text-slate-400 italic">Sem evoluções registradas para este paciente.</h3>
               </Card>
             ) : (
