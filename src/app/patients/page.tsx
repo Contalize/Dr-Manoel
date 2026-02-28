@@ -123,23 +123,21 @@ export default function PatientsPage() {
     }
   }, [chronoAgeCalculated]);
 
-  // Efeito de Inicialização da UI (Montagem Imediata)
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Efeito de Busca Assíncrona (onSnapshot desacoplado com limite)
   useEffect(() => {
     if (!mounted) return;
 
     setIsInitialLoading(true);
     
-    // Consulta otimizada: Apenas ativos, limitados aos 20 mais recentes para performance
+    // Otimização: Consulta por índice simples (name) para evitar erro de índice composto
+    // A filtragem por status 'active' é feita no lado do cliente para garantir funcionamento imediato
     const q = query(
       collection(db, "patients"), 
-      where("status", "==", "active"),
       orderBy("name"),
-      limit(20)
+      limit(100) // Buscamos um set maior para filtrar no cliente sem perder densidade
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -245,15 +243,17 @@ export default function PatientsPage() {
 
   const filteredPatients = useMemo(() => {
     return patients.filter(p => {
+      // Filtro de Busca
       const matchesSearch = p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
                            p.cpf?.includes(searchTerm);
       
       if (!matchesSearch) return false;
 
+      // Filtro de Status/Contexto (Processado no Cliente para evitar índices compostos)
       if (activeFilter === 'today') return p.lastConsultation === todayStr;
       if (activeFilter === 'active') return p.status === 'active';
-      return true;
-    });
+      return p.status === 'active'; // Por padrão só mostra ativos
+    }).slice(0, 20); // Mantém a densidade da UI limitada
   }, [patients, searchTerm, activeFilter, todayStr]);
 
   if (!mounted) return null;

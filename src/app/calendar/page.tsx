@@ -54,22 +54,25 @@ export default function CalendarPage() {
 
   const selectedDateStr = date ? format(date, "yyyy-MM-dd") : "";
 
-  // Busca Reativa Otimizada (Filtro de data no servidor + Limite de segurança)
+  // Busca Reativa Otimizada (Filtro simples para evitar erro de índice composto)
   useEffect(() => {
     if (!mounted || !selectedDateStr) return;
 
     setIsLoading(true);
     
-    // Consulta performática: busca apenas agendamentos do dia selecionado
+    // Consulta por índice simples (date)
     const q = query(
       collection(db, "appointments"), 
       where("date", "==", selectedDateStr),
-      orderBy("time"),
-      limit(50) // Limite generoso para um dia de clínica mas protetor para o servidor
+      limit(100)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setAppointments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Appointment)));
+      // Ordenação secundária feita no cliente para evitar necessidade de índice composto
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Appointment));
+      data.sort((a, b) => a.time.localeCompare(b.time));
+      
+      setAppointments(data);
       setIsLoading(false);
     }, (error) => {
       console.error("Erro na busca da agenda:", error);
@@ -79,7 +82,6 @@ export default function CalendarPage() {
     return () => unsubscribe();
   }, [mounted, selectedDateStr]);
 
-  // Slots de Atendimento fixos (não dependem de dados do Firebase)
   const timeSlots = useMemo(() => {
     const slots = [];
     for (let i = 8; i <= 19; i++) {
@@ -122,7 +124,7 @@ export default function CalendarPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-12">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-12 md:mt-0">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-12 md:pt-0">
         <div>
           <h1 className="text-3xl font-bold text-primary font-headline tracking-tight">Agenda Clínica Profissional</h1>
           <p className="text-muted-foreground">Gestão de alta performance e fluxo de atendimento.</p>
@@ -138,7 +140,6 @@ export default function CalendarPage() {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Lado Esquerdo: Controle e Mini Calendário */}
         <div className="lg:col-span-4 space-y-6">
           <Card className="border-none shadow-xl bg-white overflow-hidden">
             <CardHeader className="bg-primary/5 border-b py-4">
@@ -181,7 +182,6 @@ export default function CalendarPage() {
           </Card>
         </div>
 
-        {/* Lado Direito: Linha do Tempo de Alta Performance */}
         <div className="lg:col-span-8">
           <Card className="border-none shadow-2xl bg-white overflow-hidden flex flex-col min-h-[700px]">
             <CardHeader className="bg-white border-b sticky top-0 z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 p-6">
@@ -224,13 +224,11 @@ export default function CalendarPage() {
 
                     return (
                       <div key={slot} className="group flex gap-6 min-h-[100px] relative">
-                        {/* Indicador de Horário */}
                         <div className="flex flex-col items-center w-16 shrink-0 pt-2">
                           <span className="text-sm font-bold text-primary tracking-tighter">{slot}</span>
                           <div className="w-px h-full bg-slate-100 mt-2 group-last:bg-transparent" />
                         </div>
 
-                        {/* Conteúdo do Slot */}
                         <div className="flex-1 pb-6 space-y-3">
                           {appsInSlot.length === 0 ? (
                             <div className="h-full border-t border-slate-50 pt-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -274,7 +272,6 @@ export default function CalendarPage() {
                                       </div>
                                     </div>
 
-                                    {/* Ações Rápidas */}
                                     <div className="flex items-center gap-2">
                                       <Button variant="outline" size="sm" className="h-9 w-9 p-0 border-emerald-200 text-emerald-600 hover:bg-emerald-50 rounded-lg">
                                         <MessageCircle className="h-4 w-4" />
