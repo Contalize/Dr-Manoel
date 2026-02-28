@@ -15,7 +15,8 @@ import {
   Filter,
   Calendar as CalendarIcon,
   Search,
-  CheckCircle2
+  CheckCircle2,
+  Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -32,11 +33,15 @@ interface Appointment {
 }
 
 export default function CalendarPage() {
-  const [date, setDate] = useState<Date | undefined>(new Date());
+  const [date, setDate] = useState<Date | undefined>(undefined);
+  const [mounted, setMounted] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
+    setMounted(true);
+    setDate(new Date());
+
     const q = query(collection(db, "appointments"), orderBy("time"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setAppointments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Appointment)));
@@ -71,9 +76,17 @@ export default function CalendarPage() {
     );
   };
 
+  if (!mounted) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-12 md:mt-0">
         <div>
           <h1 className="text-3xl font-bold text-primary font-headline tracking-tight">Agenda Clínica Profissional</h1>
           <p className="text-muted-foreground">Gestão estratégica de consultas e fluxos de atendimento.</p>
@@ -139,7 +152,7 @@ export default function CalendarPage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
                   placeholder="Buscar por paciente..." 
-                  className="pl-10 bg-secondary/10 border-none h-10 text-xs"
+                  className="pl-10 bg-secondary/10 border-none h-10 text-sm"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
