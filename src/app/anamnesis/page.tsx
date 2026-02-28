@@ -22,6 +22,8 @@ import { Slider } from "@/components/ui/slider";
 
 export default function AnamnesisPage() {
   const [step, setStep] = useState(1);
+  const [painIntensity, setPainIntensity] = useState(0);
+  const [stressLevel, setStressLevel] = useState(5);
   const totalSteps = 4;
 
   const progress = (step / totalSteps) * 100;
@@ -77,12 +79,30 @@ export default function AnamnesisPage() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label className="font-bold text-primary">Intensidade da Dor (0-10)</Label>
-                    <Slider defaultValue={[0]} max={10} step={1} className="py-4" />
+                    <div className="flex justify-between items-center mb-1">
+                      <Label className="font-bold text-primary">Intensidade da Dor (0-10)</Label>
+                      <span className="text-xs font-bold bg-primary/10 text-primary px-2 py-1 rounded-md">{painIntensity}/10</span>
+                    </div>
+                    <Slider 
+                      value={[painIntensity]} 
+                      onValueChange={(val) => setPainIntensity(val[0])} 
+                      max={10} 
+                      step={1} 
+                      className="py-4" 
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label className="font-bold text-primary">Nível de Estresse Percebido</Label>
-                    <Slider defaultValue={[5]} max={10} step={1} className="py-4" />
+                    <div className="flex justify-between items-center mb-1">
+                      <Label className="font-bold text-primary">Nível de Estresse Percebido</Label>
+                      <span className="text-xs font-bold bg-primary/10 text-primary px-2 py-1 rounded-md">{stressLevel}/10</span>
+                    </div>
+                    <Slider 
+                      value={[stressLevel]} 
+                      onValueChange={(val) => setStressLevel(val[0])} 
+                      max={10} 
+                      step={1} 
+                      className="py-4" 
+                    />
                   </div>
                 </div>
               </div>
