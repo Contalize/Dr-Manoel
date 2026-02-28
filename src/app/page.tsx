@@ -1,9 +1,8 @@
-
 "use client"
 
 import { useState, useEffect } from "react";
 import { db } from "@/firebase/config";
-import { collection, onSnapshot, query, where, limit, getDocs, orderBy } from "firebase/firestore";
+import { collection, onSnapshot, query, where, limit, getDocs } from "firebase/firestore";
 import { 
   Users, 
   CalendarCheck, 
@@ -69,7 +68,7 @@ export default function Dashboard() {
   const [dbStatus, setDbStatus] = useState<'online' | 'offline' | 'checking'>('checking');
   const [currentDate, setCurrentDate] = useState<string>("");
   const [upcomingBirthdays, setUpcomingBirthdays] = useState<UpcomingBirthday[]>([]);
-  const [clinicalAlerts, setClinicalAlerts] = useState<ClinicalAlert[]>([
+  const [clinicalAlerts] = useState<ClinicalAlert[]>([
     { id: '1', patientName: 'Ana Silva Santos', type: 'critical', message: 'PCR Elevado (8.2 mg/dL) detectado em exame recente.' },
     { id: '2', patientName: 'Carlos Eduardo Souza', type: 'warning', message: 'Adesão ao Protocolo de Suplementação abaixo de 60%.' },
     { id: '3', patientName: 'Mariana Oliveira', type: 'info', message: 'Evolução clínica positiva: Redução de 30% em marcadores inflamatórios.' }
@@ -139,7 +138,6 @@ export default function Dashboard() {
     
     const unsubscribeApps = onSnapshot(qAppointments, (snapshot) => {
       const apps = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-      // Ordenação manual no cliente para evitar erro de índice composto
       apps.sort((a, b) => (a.time || "").localeCompare(b.time || ""));
       setAppointments(apps);
     });
@@ -158,7 +156,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8 pb-12">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-12 md:pt-0">
         <div>
           <div className="flex items-center gap-3 mb-1">
             <h1 className="text-3xl font-bold text-primary font-headline">Painel Dr. Manoel</h1>
@@ -234,8 +232,8 @@ export default function Dashboard() {
                 <AreaChart data={clinicalTrends}>
                   <defs>
                     <linearGradient id="colorPCR" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#065F46" stopOpacity={0.1}/>
-                      <stop offset="95%" stopColor="#065F46" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#2D5A27" stopOpacity={0.1}/>
+                      <stop offset="95%" stopColor="#2D5A27" stopOpacity={0}/>
                     </linearGradient>
                     <linearGradient id="colorAdesao" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#D4AF37" stopOpacity={0.1}/>
@@ -251,7 +249,7 @@ export default function Dashboard() {
                   <Area 
                     type="monotone" 
                     dataKey="pcr" 
-                    stroke="#065F46" 
+                    stroke="#2D5A27" 
                     strokeWidth={3}
                     fillOpacity={1} 
                     fill="url(#colorPCR)" 
