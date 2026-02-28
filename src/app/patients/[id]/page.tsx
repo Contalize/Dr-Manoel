@@ -65,6 +65,7 @@ import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { logAction } from "@/lib/audit";
 import { cn } from "@/lib/utils";
+import { NewPrescriptionDialog } from "@/components/prescriptions/NewPrescriptionDialog";
 
 interface Evolution {
   id: string;
@@ -113,14 +114,12 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     };
 
     // Listeners em tempo real para Evoluções
-    // IMPORTANTE: Removemos orderBy para evitar erro de índice composto. Ordenação feita no cliente.
     const qEvol = query(
       collection(db, "evolutions"), 
       where("patientId", "==", id)
     );
     const unsubEvol = onSnapshot(qEvol, (snap) => {
       const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Evolution));
-      // Ordenação manual por data decrescente
       data.sort((a, b) => {
         const timeA = a.date?.toMillis?.() || 0;
         const timeB = b.date?.toMillis?.() || 0;
@@ -132,14 +131,12 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     });
 
     // Listeners para Prescrições
-    // IMPORTANTE: Removemos orderBy para evitar erro de índice composto. Ordenação feita no cliente.
     const qPresc = query(
       collection(db, "prescriptions"), 
       where("patientId", "==", id)
     );
     const unsubPresc = onSnapshot(qPresc, (snap) => {
       const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Prescription));
-      // Ordenação manual por data decrescente
       data.sort((a, b) => {
         const timeA = a.date?.toMillis?.() || 0;
         const timeB = b.date?.toMillis?.() || 0;
@@ -209,7 +206,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
           <Button variant="outline" className="border-primary/20 text-primary">
             <Printer className="h-4 w-4 mr-2" /> Imprimir Prontuário
           </Button>
-          <Button className="bg-accent text-white hover:bg-accent/90 shadow-md">
+          <Button className="bg-primary text-white hover:bg-primary/90 shadow-md">
             <ClipboardCheck className="h-4 w-4 mr-2" /> Alta Clínica
           </Button>
         </div>
@@ -231,7 +228,6 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
           </TabsTrigger>
         </TabsList>
 
-        {/* Conteúdo: Evolução Clínica */}
         <TabsContent value="evolution" className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
@@ -326,16 +322,21 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
           </div>
         </TabsContent>
 
-        {/* Conteúdo: Receituário */}
         <TabsContent value="prescriptions" className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-bold text-primary font-headline">Receituário Clínico</h2>
               <p className="text-sm text-muted-foreground">Histórico de prescrições e novos receituários.</p>
             </div>
-            <Button className="bg-accent text-white hover:bg-accent/90">
-              <Plus className="h-4 w-4 mr-2" /> Novo Receituário
-            </Button>
+            <NewPrescriptionDialog 
+              initialPatientId={patient.id} 
+              initialPatientName={patient.name} 
+              trigger={
+                <Button className="bg-accent text-white hover:bg-accent/90">
+                  <Plus className="h-4 w-4 mr-2" /> Novo Receituário
+                </Button>
+              }
+            />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -386,14 +387,13 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
           </div>
         </TabsContent>
 
-        {/* Abas Anamnese e Resumo em construção (Placeholder funcional) */}
         <TabsContent value="anamnesis">
           <Card className="border-none shadow-md">
             <CardContent className="p-20 text-center space-y-4">
               <Stethoscope className="h-16 w-16 text-primary/20 mx-auto" />
-              <h3 className="text-xl font-bold text-primary">Redirecionando para Anamnese SOAP...</h3>
+              <h3 className="text-xl font-bold text-primary">Iniciar Avaliação Integrativa</h3>
               <p className="text-muted-foreground">O módulo de avaliação clínica SOAP está integrado.</p>
-              <Button onClick={() => window.location.href='/anamnesis'}>Iniciar Nova Avaliação</Button>
+              <Button onClick={() => window.location.href='/anamnesis'}>Ir para Atendimento</Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -408,20 +408,12 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                     <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Situação Atual</Label>
                     <p className="text-sm font-medium">Paciente em protocolo integrativo de desinflamação.</p>
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Últimos Marcadores</Label>
-                    <div className="flex gap-2">
-                      <Badge className="bg-red-100 text-red-700">PCR: 8.2</Badge>
-                      <Badge className="bg-emerald-100 text-emerald-700">Vit D: 45ng/ml</Badge>
-                    </div>
-                  </div>
                 </div>
                 <div className="p-4 bg-primary/5 rounded-xl border border-primary/10">
                   <h4 className="text-xs font-bold text-primary uppercase mb-2">Orientações Prioritárias</h4>
                   <ul className="text-xs space-y-1 list-disc list-inside text-slate-600">
                     <li>Manter hidratação adequada</li>
-                    <li>Suplementação de Magnésio após jantar</li>
-                    <li>Retorno em 15 dias para novos exames</li>
+                    <li>Suplementação conforme prescrição</li>
                   </ul>
                 </div>
               </div>
