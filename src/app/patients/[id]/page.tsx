@@ -64,6 +64,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { logAction } from "@/lib/audit";
+import { cn } from "@/lib/utils";
 
 interface Evolution {
   id: string;
@@ -112,7 +113,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     };
 
     // Listeners em tempo real para Evoluções
-    // Removendo orderBy da query para evitar erro de índice ausente; ordenação será feita no cliente.
+    // IMPORTANTE: Removemos orderBy para evitar erro de índice composto. Ordenação feita no cliente.
     const qEvol = query(
       collection(db, "evolutions"), 
       where("patientId", "==", id)
@@ -131,6 +132,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     });
 
     // Listeners para Prescrições
+    // IMPORTANTE: Removemos orderBy para evitar erro de índice composto. Ordenação feita no cliente.
     const qPresc = query(
       collection(db, "prescriptions"), 
       where("patientId", "==", id)
