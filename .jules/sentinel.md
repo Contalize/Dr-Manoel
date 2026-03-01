@@ -1,0 +1,4 @@
+## 2024-05-14 - Fix Hardcoded Firebase Credentials in Configuration
+**Vulnerability:** Firebase configuration values (including `apiKey`, `appId`, `projectId`, etc.) were hardcoded directly in `src/firebase/config.ts`.
+**Learning:** Hardcoding secrets and credentials in source code files exposes them to anyone with repository access or anyone who can view the application source map. This applies even for "public" API keys in client-side apps, as keeping them in the configuration files might lead to accidentally committing production configurations and prevents proper environment separation (e.g. dev vs prod keys).
+**Prevention:** Always use environment variables for sensitive configuration values, such as API keys. Next.js supports `NEXT_PUBLIC_*` environment variables for client-side configuration, which should be set securely via CI/CD pipelines or `.env` files that are strictly `.gitignore`d.
