@@ -1,0 +1,4 @@
+## 2024-05-24 - Hardcoded Firebase Credentials in Source Code
+**Vulnerability:** The Firebase configuration in `src/firebase/config.ts` contained hardcoded API keys, App IDs, and Measurement IDs, directly exposing them in version control.
+**Learning:** These keys were likely added directly for ease of local development and quick setup, without considering the security implications of tracking secrets in the codebase repository.
+**Prevention:** Always use environment variables for sensitive configuration data. In a Next.js project, use `process.env.NEXT_PUBLIC_*` for variables that need to be accessible on the client side, and strictly enforce the usage of `.env.local` for local secrets while providing `.env.example` as a safe template in the repository.
