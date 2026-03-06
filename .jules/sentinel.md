@@ -1,0 +1,4 @@
+## 2024-05-14 - Fix Hardcoded Firebase Secrets
+**Vulnerability:** Hardcoded Firebase API keys and project identifiers were found in `src/firebase/config.ts`. This exposes sensitive project infrastructure details to anyone with access to the source code, potentially allowing unauthorized use of Firebase resources or further attacks.
+**Learning:** In Next.js applications, Firebase configuration values should be injected via environment variables (e.g., `NEXT_PUBLIC_FIREBASE_API_KEY`) to separate configuration from code. This ensures secrets are not committed to version control.
+**Prevention:** Always use `process.env.*` for sensitive configuration values. Maintain an `.env.example` file to document required environment variables without exposing actual secrets. Ensure `.env.local` and similar files containing secrets are ignored by version control.
