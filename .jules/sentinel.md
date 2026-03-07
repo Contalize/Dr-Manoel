@@ -1,0 +1,4 @@
+## 2024-05-14 - Hardcoded Firebase Config Secrets
+**Vulnerability:** Firebase config object in `src/firebase/config.ts` contained hardcoded production API key and other secrets, which could be exposed via source code leaks or client-side bundles if not carefully managed, violating the principle of least privilege and secure credential management.
+**Learning:** The initial setup likely prioritized ease of development over security, embedding credentials directly in the code instead of leveraging Next.js's built-in support for environment variables (`process.env.NEXT_PUBLIC_*`).
+**Prevention:** Always use environment variables for sensitive configuration values, even for client-side visible keys, to allow for easier rotation and separate configurations for different environments (dev, staging, prod). Ensure `.env.example` is maintained and `.env.local` is used for local overrides and build-time generation.
