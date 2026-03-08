@@ -1,0 +1,4 @@
+## 2026-03-08 - [Hardcoded Firebase Secrets]
+ **Vulnerability:** Found hardcoded Firebase configuration secrets (including apiKey) in `src/firebase/config.ts`.
+ **Learning:** In early development, it's common to hardcode these values for convenience, forgetting to migrate them to environment variables before pushing to source control.
+ **Prevention:** Use environment variables (`process.env.NEXT_PUBLIC_*`) for all external service configuration from the start. Maintain a `.env.example` file to document required keys. Consider using tools like git-secrets or similar pre-commit hooks to detect secrets before they are committed.

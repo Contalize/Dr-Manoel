@@ -3,14 +3,16 @@ import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { getAnalytics, isSupported } from "firebase/analytics";
 
+// 🛡️ Security: Load Firebase configuration from environment variables
+// to prevent exposing sensitive keys in source control.
 const firebaseConfig = {
-  apiKey: "AIzaSyDUEF1eIEvU2_nsiooN3SCKpl18ez3UaxQ",
-  authDomain: "manoel-farmacia.firebaseapp.com",
-  projectId: "manoel-farmacia",
-  storageBucket: "manoel-farmacia.firebasestorage.app",
-  messagingSenderId: "566371095984",
-  appId: "1:566371095984:web:d1ce5144af5415ff6e7275",
-  measurementId: "G-DG8KFS2V8Z"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase
