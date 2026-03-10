@@ -1,146 +1,48 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { 
-  LayoutDashboard, 
-  Users, 
-  Calendar, 
-  Stethoscope, 
-  ClipboardList, 
-  Wallet, 
-  Settings,
-  Leaf,
-  ShieldCheck,
-  LogOut,
-  Database,
-  Menu
-} from "lucide-react"
-import { cn } from "@/lib/utils"
-import { auth } from "@/firebase/config"
-import { signOut } from "firebase/auth"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-
-const navigation = [
-  { name: 'Painel Geral', href: '/', icon: LayoutDashboard },
-  { name: 'Pacientes', href: '/patients', icon: Users },
-  { name: 'Agenda', href: '/calendar', icon: Calendar },
-  { name: 'Anamnese', href: '/anamnesis', icon: Stethoscope },
-  { name: 'Protocolos', href: '/planner', icon: ClipboardList },
-  { name: 'Financeiro', href: '/finance', icon: Wallet },
-  { name: 'Configurações', href: '/settings', icon: Settings },
-]
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Home, Users, Calendar, FileText, Settings, DollarSign } from "lucide-react";
 
 export function DashboardSidebar() {
-  const pathname = usePathname()
-  const router = useRouter()
-  const [open, setOpen] = useState(false)
+  const pathname = usePathname();
 
-  const handleLogout = async () => {
-    await signOut(auth)
-    router.push("/login")
-  }
-
-  if (pathname === "/login") return null
-
-  const SidebarLink = ({ item }: { item: typeof navigation[0] }) => {
-    const isActive = pathname === item.href
-    return (
-      <Link
-        key={item.name}
-        href={item.href}
-        prefetch={true}
-        onClick={() => setOpen(false)}
-        className={cn(
-          "group flex items-center px-3 py-3 text-sm font-medium rounded-md transition-all duration-200",
-          isActive 
-            ? "bg-white/15 text-white border-l-4 border-accent" 
-            : "text-white/70 hover:bg-white/10 hover:text-white"
-        )}
-      >
-        <item.icon className={cn(
-          "mr-3 h-5 w-5 shrink-0",
-          isActive ? "text-white" : "text-white/60 group-hover:text-white"
-        )} />
-        {item.name}
-      </Link>
-    )
-  }
-
-  const SidebarContent = () => (
-    <div className="flex flex-col h-full bg-primary text-primary-foreground shadow-xl border-r border-primary/10">
-      <div className="p-6 flex items-center gap-3">
-        <div className="bg-white rounded-lg p-2 shrink-0">
-          <Leaf className="h-6 w-6 text-primary" />
-        </div>
-        <h1 className="text-xl font-headline font-bold tracking-tight text-white truncate">PharmaZen</h1>
-      </div>
-      
-      <nav className="flex-1 px-4 space-y-1 mt-4 overflow-y-auto">
-        {navigation.map((item) => (
-          <SidebarLink key={item.name} item={item} />
-        ))}
-      </nav>
-
-      <div className="p-4 border-t border-white/10 space-y-2">
-        <Link
-          href="/test-db"
-          prefetch={true}
-          onClick={() => setOpen(false)}
-          className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-all"
-        >
-          <Database className="mr-3 h-5 w-5 text-white/60 shrink-0" />
-          <span className="truncate">Diagnóstico</span>
-        </Link>
-        <Link
-          href="/privacy"
-          prefetch={true}
-          onClick={() => setOpen(false)}
-          className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-all"
-        >
-          <ShieldCheck className="mr-3 h-5 w-5 text-white/60 shrink-0" />
-          <span className="truncate">Privacidade</span>
-        </Link>
-        
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center px-3 py-2 text-sm font-medium rounded-md text-red-200 hover:bg-red-900/20 hover:text-red-100 transition-all"
-        >
-          <LogOut className="mr-3 h-5 w-5 text-red-300 shrink-0" />
-          <span>Sair</span>
-        </button>
-
-        <div className="mt-4 px-3 py-4 bg-black/20 rounded-lg border border-white/5 hidden md:block">
-          <p className="text-[10px] text-white/40 uppercase tracking-widest font-bold mb-1">Dr. Manoel</p>
-          <p className="text-[11px] text-white/50 truncate">Farmacêutico Integrativo</p>
-        </div>
-      </div>
-    </div>
-  )
+  const menuItems = [
+    { icon: Home, label: "Início", href: "/" },
+    { icon: Calendar, label: "Agenda", href: "/calendar" },
+    { icon: Users, label: "Pacientes", href: "/patients" },
+    { icon: FileText, label: "Prontuários", href: "/anamnesis" },
+    { icon: DollarSign, label: "Financeiro", href: "/finance" },
+    { icon: Settings, label: "Configurações", href: "/settings" },
+  ];
 
   return (
-    <>
-      {/* Mobile Trigger */}
-      <div className="md:hidden fixed top-4 left-4 z-50">
-        <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger asChild>
-            <Button variant="outline" size="icon" className="bg-white border-primary/20 text-primary shadow-md">
-              <Menu className="h-6 w-6" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-64 border-none">
-            <SidebarContent />
-          </SheetContent>
-        </Sheet>
+    <aside className="w-64 bg-slate-900 text-slate-300 min-h-screen p-4 hidden md:block">
+      <div className="mb-8 mt-4 px-2">
+        <h2 className="text-2xl font-bold text-white tracking-tight">PharmaZen</h2>
+        <p className="text-xs text-slate-500 mt-1">Clínica Integrativa</p>
       </div>
 
-      {/* Desktop Sidebar */}
-      <div className="hidden md:flex flex-col w-64 h-full">
-        <SidebarContent />
-      </div>
-    </>
-  )
+      <nav className="space-y-2">
+        {menuItems.map((item) => {
+          const isActive = pathname === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              prefetch={true} // Força o carregamento instantâneo da rota
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                isActive
+                  ? "bg-indigo-600 text-white font-medium shadow-md"
+                  : "hover:bg-slate-800 hover:text-white"
+              }`}
+            >
+              <item.icon className={`h-5 w-5 ${isActive ? "text-indigo-200" : "text-slate-400"}`} />
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
+    </aside>
+  );
 }
