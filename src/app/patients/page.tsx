@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react";
-import { db } from "@/firebase/config";
+import { db, auth } from "@/firebase/config";
 import { 
   collection, 
   onSnapshot, 
@@ -222,7 +222,8 @@ export default function PatientsPage() {
         await addDoc(collection(db, "patients"), {
           ...patientData,
           lastConsultation: new Date().toLocaleDateString('pt-BR'),
-          createdAt: serverTimestamp()
+          createdAt: serverTimestamp(),
+          userId: auth.currentUser?.uid || "system"
         });
         await logAction("CRIAR_PACIENTE", "NOVO", { nome: formData.name });
       }
