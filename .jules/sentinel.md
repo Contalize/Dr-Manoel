@@ -1,0 +1,4 @@
+## 2025-03-13 - Missing Multi-Tenant Data Isolation (userId)
+**Vulnerability:** When creating documents in Firestore across collections (e.g. patients, prescriptions, consultations, evolutions, professionals), the `userId` field is consistently missing (except in audit logs). This means all users of the platform can currently see data from all other users. The firestore rules temporarily permit this due to the technical debt.
+**Learning:** The application was built without row-level access control / multi-tenant isolation, directly inserting data without associating it with the authenticated user's ID. This breaks LGPD compliance expectations for strict access control on sensitive health data.
+**Prevention:** Every time a new document is inserted using `addDoc`, it should include `userId: auth.currentUser?.uid` to establish ownership and enable strict row-level security rules in Firestore in the future.

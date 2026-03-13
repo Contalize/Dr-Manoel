@@ -111,7 +111,15 @@ export default function AnamnesisPage() {
 
     setIsSubmitting(true);
     try {
+      // Sentinel: Ensure multi-tenant data isolation
+      const currentUserId = auth.currentUser?.uid;
+      if (!currentUserId) {
+        throw new Error("Usuário não autenticado não pode salvar consultas.");
+      }
+
+      // Sentinel: added userId field to consultation data to enforce isolation rules
       const consultationData = {
+        userId: currentUserId,
         patientId: selectedPatient.id,
         patientName: selectedPatient.name,
         date: serverTimestamp(),
@@ -129,6 +137,7 @@ export default function AnamnesisPage() {
       
       // Também registramos na evolução e prescrição para manter compatibilidade com o prontuário antigo
       await addDoc(collection(db, "evolutions"), {
+        userId: currentUserId,
         patientId: selectedPatient.id,
         date: serverTimestamp(),
         type: "Atendimento",
