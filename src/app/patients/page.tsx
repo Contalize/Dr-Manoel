@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react";
-import { db } from "@/firebase/config";
+import { db, auth } from "@/firebase/config";
 import { 
   collection, 
   onSnapshot, 
@@ -219,8 +219,14 @@ export default function PatientsPage() {
         await updateDoc(doc(db, "patients", editingPatientId), patientData);
         await logAction("EDITAR_PACIENTE", editingPatientId, { nome: formData.name });
       } else {
+        // Sentinel: Ensure multi-tenant data isolation by associating patient with current user
+        const currentUserId = auth.currentUser?.uid;
+        if (!currentUserId) {
+          throw new Error("Unauthenticated user cannot create patient data.");
+        }
         await addDoc(collection(db, "patients"), {
           ...patientData,
+          userId: currentUserId,
           lastConsultation: new Date().toLocaleDateString('pt-BR'),
           createdAt: serverTimestamp()
         });
