@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm, useFieldArray } from "react-hook-form"
 import * as z from "zod"
 import { Check, ChevronsUpDown, Loader2, Plus, Trash2, Pill, Save, Search, Info, UserCheck, AlertCircle } from "lucide-react"
-import { db } from "@/firebase/config"
+import { db, auth } from "@/firebase/config"
 import { collection, addDoc, serverTimestamp, getDocs, query, where } from "firebase/firestore"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -158,6 +158,7 @@ export function NewPrescriptionDialog({ initialPatientId, initialPatientName, tr
       const selectedProf = professionals.find(p => p.id === values.professionalId)
 
       await addDoc(collection(db, "prescriptions"), {
+        userId: auth.currentUser?.uid || "", // Segurança LGPD: Vinculação de documento ao usuário criador
         patientId: values.patientId,
         patientName,
         professionalId: values.professionalId,

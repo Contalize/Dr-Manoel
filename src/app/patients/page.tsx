@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react";
-import { db } from "@/firebase/config";
+import { db, auth } from "@/firebase/config";
 import { 
   collection, 
   onSnapshot, 
@@ -221,6 +221,7 @@ export default function PatientsPage() {
       } else {
         await addDoc(collection(db, "patients"), {
           ...patientData,
+          userId: auth.currentUser?.uid || "", // Segurança LGPD: Vinculação de documento ao usuário criador
           lastConsultation: new Date().toLocaleDateString('pt-BR'),
           createdAt: serverTimestamp()
         });
