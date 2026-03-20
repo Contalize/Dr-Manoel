@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { db } from "@/firebase/config"
+import { db, auth } from "@/firebase/config"
 import { 
   collection, 
   onSnapshot, 
@@ -143,6 +143,7 @@ export default function SettingsPage() {
     try {
       await addDoc(collection(db, "professionals"), {
         ...newProf,
+        userId: auth.currentUser?.uid || "", // Security: Row-level access control
         status: "active",
         createdAt: serverTimestamp()
       })

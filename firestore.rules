@@ -1,10 +1,25 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Regra de Meio-Termo: Permite acesso total para qualquer usuário autenticado.
-    // Isso evita o erro de permissão em documentos que ainda não possuem o campo 'userId'.
+
+    // Função para verificar se é admin
+    function isAdmin() {
+      // Idealmente, isso verificaria a collection de users, mas como paliativo permitimos
+      return request.auth != null;
+    }
+
+    // Regras padrão - exige auth, e se tiver userId, checa autoria (preparando para RLS estrito)
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, delete: if request.auth != null;
+
+      // Update exige que se o documento tiver userId, o user só pode atualizar os seus próprios (ou ser admin no futuro)
+      allow update: if request.auth != null &&
+        (!("userId" in resource.data) || resource.data.userId == request.auth.uid);
+
+      // Create não força userId para coleções sistêmicas sem usuário logado (ex. anonymous fallback)
+      // Mas se o doc tiver userId, deve ser do próprio usuário
+      allow create: if request.auth != null &&
+      (!("userId" in request.resource.data) || request.resource.data.userId == request.auth.uid || request.resource.data.userId == "");
     }
   }
 }
