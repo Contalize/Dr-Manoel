@@ -152,6 +152,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     try {
       await addDoc(collection(db, "evolutions"), {
         patientId: id,
+        userId: auth.currentUser?.uid || "", // Security: Row-level access control
         date: serverTimestamp(),
         type: newEvolution.type,
         description: newEvolution.description,

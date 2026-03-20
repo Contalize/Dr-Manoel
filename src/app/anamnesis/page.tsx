@@ -114,6 +114,7 @@ export default function AnamnesisPage() {
       const consultationData = {
         patientId: selectedPatient.id,
         patientName: selectedPatient.name,
+        userId: auth.currentUser?.uid || "", // Security: Row-level access control
         date: serverTimestamp(),
         professionalName: auth.currentUser?.email || "Profissional",
         soap: {
@@ -130,6 +131,7 @@ export default function AnamnesisPage() {
       // Também registramos na evolução e prescrição para manter compatibilidade com o prontuário antigo
       await addDoc(collection(db, "evolutions"), {
         patientId: selectedPatient.id,
+        userId: auth.currentUser?.uid || "", // Security: Row-level access control
         date: serverTimestamp(),
         type: "Atendimento",
         description: `Consulta Completa. Queixa: ${complaint}. Procedimentos: ${procedures.length}.`,
