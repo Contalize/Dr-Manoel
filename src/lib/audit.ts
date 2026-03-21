@@ -1,6 +1,6 @@
-
 import { db, auth } from "@/firebase/config";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { onAuthStateChanged, User } from "firebase/auth";
 
 /**
  * Registra uma ação sensível na trilha de auditoria para conformidade LGPD e RDC/ANVISA.
@@ -8,7 +8,15 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
  */
 export async function logAction(action: string, patientId: string, metadata: any = {}) {
   try {
-    const user = auth.currentUser;
+    // Aguardar a inicialização do estado de autenticação para evitar
+    // race conditions e uso indevido de 'system'
+    const user: User | null = await new Promise((resolve) => {
+      const unsubscribe = onAuthStateChanged(auth, (u) => {
+        unsubscribe();
+        resolve(u);
+      });
+    });
+
     // Não utilizamos await para não bloquear a UI, seguindo as diretrizes de mutação rápida
     addDoc(collection(db, "audit_logs"), {
       userId: user?.uid || "system",
