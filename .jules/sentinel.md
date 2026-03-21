@@ -1,0 +1,4 @@
+## 2024-05-24 - Fix Race Condition in Firebase Auth for LGPD Compliance
+**Vulnerability:** A race condition existed where `auth.currentUser` was accessed synchronously on the client side before Firebase Auth had fully initialized. For rapid UI mutations such as recording audit logs (`src/lib/audit.ts`), this resulted in `userId` being recorded as "system" or "anonymous" rather than the authenticated user's ID, which is a critical violation of LGPD/ANVISA audit trail compliance.
+**Learning:** Firebase Auth initialization is asynchronous. Accessing `auth.currentUser` directly before the auth state is confirmed can return `null` even if a user session exists, breaking Row-Level Access tracking and audit log integrity.
+**Prevention:** Always await auth state initialization before accessing user properties. Use a Promise wrapper around `onAuthStateChanged` to ensure the correct `userId` is obtained without blocking UI threads unnecessarily.
