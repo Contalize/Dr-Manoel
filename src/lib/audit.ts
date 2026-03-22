@@ -1,6 +1,20 @@
 
 import { db, auth } from "@/firebase/config";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { onAuthStateChanged, User } from "firebase/auth";
+
+/**
+ * Obtém o usuário de forma segura, aguardando a inicialização do Firebase Auth.
+ * Previne race conditions onde auth.currentUser é null temporariamente no carregamento da página.
+ */
+async function getSecureUser(): Promise<User | null> {
+  return new Promise((resolve) => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      unsubscribe();
+      resolve(user);
+    });
+  });
+}
 
 /**
  * Registra uma ação sensível na trilha de auditoria para conformidade LGPD e RDC/ANVISA.
@@ -8,8 +22,11 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
  */
 export async function logAction(action: string, patientId: string, metadata: any = {}) {
   try {
-    const user = auth.currentUser;
-    // Não utilizamos await para não bloquear a UI, seguindo as diretrizes de mutação rápida
+    // SECURITY FIX: Prevent race condition logging actions as anonymous/system
+    // Wait for the auth state to resolve to securely get the user ID
+    const user = await getSecureUser();
+
+    // Não utilizamos await no addDoc para não bloquear a UI, seguindo as diretrizes de mutação rápida
     addDoc(collection(db, "audit_logs"), {
       userId: user?.uid || "system",
       userName: user?.email || "anonymous",
