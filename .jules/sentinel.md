@@ -1,0 +1,4 @@
+## 2026-03-23 - [Auth] Race condition in LGPD Audit Logging
+**Vulnerability:** Audit logs (`logAction`) were synchronously accessing `auth.currentUser` before auth state initialization completed, leading to "system" (unauthenticated) logs for valid authenticated user actions. This breaks LGPD compliance requirements for row-level access auditability.
+**Learning:** `auth.currentUser` returns `null` immediately after page load until the Firebase authentication state is resolved asynchronously. This happens even if the user is logged in.
+**Prevention:** Avoid accessing `auth.currentUser` synchronously during initial page load or rapid UI mutations. Wrap `onAuthStateChanged` in a Promise and await user resolution to ensure valid authentication state is returned before performing security-critical actions.
