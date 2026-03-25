@@ -39,7 +39,7 @@ import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { logAction } from "@/lib/audit";
+import { logAction, getCurrentUser } from "@/lib/audit";
 import { useRouter } from "next/navigation";
 
 interface Patient {
@@ -115,7 +115,7 @@ export default function AnamnesisPage() {
         patientId: selectedPatient.id,
         patientName: selectedPatient.name,
         date: serverTimestamp(),
-        professionalName: auth.currentUser?.email || "Profissional",
+        professionalName: (await getCurrentUser())?.email || "Profissional",
         soap: {
           subjective: { complaint, painIntensity, stressLevel },
           objective: { vitalSigns, physicalExam },
@@ -133,7 +133,7 @@ export default function AnamnesisPage() {
         date: serverTimestamp(),
         type: "Atendimento",
         description: `Consulta Completa. Queixa: ${complaint}. Procedimentos: ${procedures.length}.`,
-        professionalName: auth.currentUser?.email || "Profissional"
+        professionalName: (await getCurrentUser())?.email || "Profissional"
       });
 
       await logAction("FINALIZAR_ATENDIMENTO_COMPLETO", selectedPatient.id, { paciente: selectedPatient.name });

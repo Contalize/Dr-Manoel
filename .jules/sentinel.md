@@ -1,0 +1,4 @@
+## 2025-03-25 - Fix race condition in Firebase authentication state
+**Vulnerability:** The codebase was using `auth.currentUser` synchronously in `src/app/anamnesis/page.tsx`, `src/app/patients/[id]/page.tsx`, and `src/lib/audit.ts` which could lead to race conditions where the user is loaded as `null` immediately after page load, causing sensitive actions to be incorrectly logged as performed by "system" or "Profissional".
+**Learning:** The synchronous `auth.currentUser` does not await auth state initialization. It can be `null` immediately after a page load, which undermines the reliability of audit logging and authentication checks for LGPD compliance.
+**Prevention:** Always use a Promise wrapper around `onAuthStateChanged` to securely resolve the user before rapid UI mutations or audit logging. An exported function like `getCurrentUser()` from `src/lib/audit.ts` should be utilized for this purpose.
