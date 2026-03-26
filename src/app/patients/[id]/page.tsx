@@ -63,7 +63,7 @@ import {
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
-import { logAction } from "@/lib/audit";
+import { logAction, getCurrentUser } from "@/lib/audit";
 import { cn } from "@/lib/utils";
 import { NewPrescriptionDialog } from "@/components/prescriptions/NewPrescriptionDialog";
 
@@ -150,12 +150,13 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     if (!newEvolution.description) return;
     setIsSubmitting(true);
     try {
+      const currentUser = await getCurrentUser();
       await addDoc(collection(db, "evolutions"), {
         patientId: id,
         date: serverTimestamp(),
         type: newEvolution.type,
         description: newEvolution.description,
-        professionalName: auth.currentUser?.email || "Profissional"
+        professionalName: currentUser?.email || "Profissional"
       });
       await logAction("REGISTRO_EVOLUCAO_CLINICA", id, { tipo: newEvolution.type });
       setNewEvolution({ type: "Medicação", description: "" });
