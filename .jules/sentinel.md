@@ -1,0 +1,4 @@
+## 2024-05-15 - [Race Condition in Audit Logging]
+**Vulnerability:** Audit logs were incorrectly recording `system` or `anonymous` users even when the user was authenticated. This was caused by directly accessing `auth.currentUser` before the Firebase Auth state had fully initialized.
+**Learning:** Accessing `auth.currentUser` synchronously can result in `null` if the initial state resolution from Firebase hasn't completed, leading to race conditions during rapid UI interactions or automated processes that call `logAction`.
+**Prevention:** Avoid using `auth.currentUser` directly without awaiting initialization. Use a Promise wrapper around `onAuthStateChanged(auth, callback)` to securely resolve the current user before performing sensitive actions or writing audit logs.
