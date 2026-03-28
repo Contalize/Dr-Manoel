@@ -1,6 +1,21 @@
 
 import { db, auth } from "@/firebase/config";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { onAuthStateChanged, User } from "firebase/auth";
+
+// Função utilitária para obter o usuário autenticado com segurança
+// Evita race conditions verificando o estado real via onAuthStateChanged
+function getCurrentUser(): Promise<User | null> {
+  return new Promise((resolve) => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      unsubscribe();
+      resolve(user);
+    }, () => {
+      unsubscribe();
+      resolve(null);
+    });
+  });
+}
 
 /**
  * Registra uma ação sensível na trilha de auditoria para conformidade LGPD e RDC/ANVISA.
@@ -8,8 +23,8 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
  */
 export async function logAction(action: string, patientId: string, metadata: any = {}) {
   try {
-    const user = auth.currentUser;
-    // Não utilizamos await para não bloquear a UI, seguindo as diretrizes de mutação rápida
+    const user = await getCurrentUser();
+    // Não utilizamos await no addDoc para não bloquear a UI, seguindo as diretrizes de mutação rápida
     addDoc(collection(db, "audit_logs"), {
       userId: user?.uid || "system",
       userName: user?.email || "anonymous",
