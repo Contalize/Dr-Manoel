@@ -1,0 +1,4 @@
+## 2025-02-17 - [auth.currentUser Race Condition]
+ **Vulnerability:** Firebase's `auth.currentUser` is often null on initial page load or rapid UI interactions due to initialization race conditions, causing audit logs or created records to default to "system" instead of the authenticated user's ID.
+ **Learning:** Direct synchronous access to `auth.currentUser` is unreliable for strict compliance or access control (like setting `userId` fields required for LGPD row-level access rules in Firestore) when mutations happen quickly before the auth state is fully hydrated.
+ **Prevention:** Use a Promise wrapper around `onAuthStateChanged` (e.g., `getCurrentUser`) to securely resolve the user object asynchronously before executing operations that require the current user's UID for tracking or authorization.
