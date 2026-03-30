@@ -1,0 +1,4 @@
+## 2026-03-30 - Fix `auth.currentUser` race condition during audit logging
+**Vulnerability:** Audit logs (LGPD/ANVISA compliance) were recording `userId` and `userName` as "system" and "anonymous" because `auth.currentUser` was used synchronously. In client-side single page applications, `auth.currentUser` can be `null` initially due to the async nature of the Firebase Auth SDK restoring session state.
+**Learning:** Security-critical functions relying on user identity, such as audit logs, must not rely on synchronous checks of `auth.currentUser` during fast UI interactions. This breaks accountability and row-level access controls for subsequent operations.
+**Prevention:** Wrap `onAuthStateChanged` in a Promise and `await` it to guarantee that the user's session state has been fully resolved before extracting identity information.
