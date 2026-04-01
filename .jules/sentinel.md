@@ -1,0 +1,4 @@
+## 2024-03-01 - [HIGH] Fix audit log race condition
+**Vulnerability:** Audit logs were incorrectly recording `userId` as "system" and `userName` as "anonymous" because `auth.currentUser` was read synchronously and evaluating to `null` before Firebase auth initialization completed. This led to inaccurate LGPD audit trails and obscured accountability for sensitive clinical actions.
+**Learning:** `auth.currentUser` is prone to race conditions on initial load, especially during rapid UI interactions or automated processes that execute before the auth state is fully established.
+**Prevention:** Always wrap `onAuthStateChanged` in a Promise (e.g., `getAuthenticatedUser`) to securely wait for and resolve the authenticated user before executing sensitive data mutations or generating audit logs, rather than relying directly on `auth.currentUser`.
