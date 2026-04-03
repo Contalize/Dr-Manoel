@@ -8,6 +8,8 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
  */
 export async function logAction(action: string, patientId: string, metadata: any = {}) {
   try {
+    // Ensure auth state is fully loaded to prevent race conditions attributing logs to 'system'
+    await auth.authStateReady();
     const user = auth.currentUser;
     // Não utilizamos await para não bloquear a UI, seguindo as diretrizes de mutação rápida
     addDoc(collection(db, "audit_logs"), {
