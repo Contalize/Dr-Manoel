@@ -1,0 +1,4 @@
+## 2025-04-04 - [Missing userId in Firestore Document Creation]
+ **Vulnerability:** Creating clinical records (like consultations or evolutions) relying on `auth.currentUser?.uid` without awaiting the authentication state, which leads to missing `userId` fields when creating documents right after page load or fast interaction.
+ **Learning:** Firebase SDK initializes auth state asynchronously. If an operation fires too soon, `auth.currentUser` might be null, bypassing proper row-level ownership tracking and violating LGPD compliance which requires strict data ownership.
+ **Prevention:** Always call `await auth.authStateReady()` before reading `auth.currentUser?.uid` for critical data mutations like `addDoc` to ensure the user object is reliably populated, preventing documents from being orphaned.

@@ -111,11 +111,20 @@ export default function AnamnesisPage() {
 
     setIsSubmitting(true);
     try {
+      await auth.authStateReady();
+
+      if (!auth.currentUser) {
+        toast({ title: "Erro", description: "Usuário não autenticado.", variant: "destructive" });
+        setIsSubmitting(false);
+        return;
+      }
+
       const consultationData = {
         patientId: selectedPatient.id,
         patientName: selectedPatient.name,
         date: serverTimestamp(),
-        professionalName: auth.currentUser?.email || "Profissional",
+        professionalName: auth.currentUser.email || "Profissional",
+        userId: auth.currentUser.uid,
         soap: {
           subjective: { complaint, painIntensity, stressLevel },
           objective: { vitalSigns, physicalExam },
@@ -133,7 +142,8 @@ export default function AnamnesisPage() {
         date: serverTimestamp(),
         type: "Atendimento",
         description: `Consulta Completa. Queixa: ${complaint}. Procedimentos: ${procedures.length}.`,
-        professionalName: auth.currentUser?.email || "Profissional"
+        professionalName: auth.currentUser.email || "Profissional",
+        userId: auth.currentUser.uid
       });
 
       await logAction("FINALIZAR_ATENDIMENTO_COMPLETO", selectedPatient.id, { paciente: selectedPatient.name });
