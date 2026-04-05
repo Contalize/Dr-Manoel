@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react";
-import { db } from "@/firebase/config";
+import { db, auth } from "@/firebase/config";
 import { 
   collection, 
   onSnapshot, 
@@ -215,12 +215,18 @@ export default function PatientsPage() {
         status: "active" // Garantia de consistência
       };
 
+      await auth.authStateReady();
+      if (!auth.currentUser) {
+        throw new Error("Usuário não autenticado");
+      }
+
       if (editingPatientId) {
         await updateDoc(doc(db, "patients", editingPatientId), patientData);
         await logAction("EDITAR_PACIENTE", editingPatientId, { nome: formData.name });
       } else {
         await addDoc(collection(db, "patients"), {
           ...patientData,
+          userId: auth.currentUser.uid,
           lastConsultation: new Date().toLocaleDateString('pt-BR'),
           createdAt: serverTimestamp()
         });
