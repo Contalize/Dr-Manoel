@@ -1,0 +1,4 @@
+## 2025-04-08 - [Authentication Race Condition in Firebase Auth]
+**Vulnerability:** Audit logs (which are critical for LGPD compliance) were sometimes being attributed to "system"/"anonymous" due to accessing `auth.currentUser` synchronously before Firebase Auth had fully initialized its state from IndexedDB/localStorage. This creates incomplete audit trails.
+**Learning:** In Firebase v9+ web apps, `auth.currentUser` can be `null` immediately on page load even if a valid session exists. Code that fires on component mount or in early lifecycle methods will capture `null` if it doesn't wait for the auth state resolution.
+**Prevention:** Before accessing `auth.currentUser` for operations that require user context (especially audit logging or creating authenticated records), use `await auth.authStateReady()` to ensure the auth state is fully loaded and initialized.
