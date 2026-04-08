@@ -8,11 +8,18 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
  */
 export async function logAction(action: string, patientId: string, metadata: any = {}) {
   try {
+    // 🛡️ Sentinel: Await auth state to prevent race conditions attributing actions to "system"
+    await auth.authStateReady();
     const user = auth.currentUser;
+
+    // Fallbacks only for extreme cases, otherwise it uses the authenticated user context
+    const userId = user?.uid || "system";
+    const userName = user?.email || "anonymous";
+
     // Não utilizamos await para não bloquear a UI, seguindo as diretrizes de mutação rápida
     addDoc(collection(db, "audit_logs"), {
-      userId: user?.uid || "system",
-      userName: user?.email || "anonymous",
+      userId,
+      userName,
       action,
       patientId,
       timestamp: serverTimestamp(),
