@@ -8,11 +8,18 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
  */
 export async function logAction(action: string, patientId: string, metadata: any = {}) {
   try {
+    await auth.authStateReady();
     const user = auth.currentUser;
+
+    if (!user) {
+      console.warn("Tentativa de log de auditoria bloqueada: Usuário não autenticado");
+      return;
+    }
+
     // Não utilizamos await para não bloquear a UI, seguindo as diretrizes de mutação rápida
     addDoc(collection(db, "audit_logs"), {
-      userId: user?.uid || "system",
-      userName: user?.email || "anonymous",
+      userId: user.uid,
+      userName: user.email || "anonymous",
       action,
       patientId,
       timestamp: serverTimestamp(),
