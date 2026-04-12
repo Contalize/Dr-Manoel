@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react";
-import { db } from "@/firebase/config";
+import { db, auth } from "@/firebase/config";
 import { 
   collection, 
   onSnapshot, 
@@ -200,6 +200,11 @@ export default function PatientsPage() {
 
     setIsSubmitting(true);
     try {
+      await auth.authStateReady();
+      if (!auth.currentUser) {
+        throw new Error("Usuário não autenticado");
+      }
+
       const finalBioAge = Number(formData.bioAge) || chronoAgeCalculated;
       const patientData = {
         name: formData.name,
@@ -219,8 +224,10 @@ export default function PatientsPage() {
         await updateDoc(doc(db, "patients", editingPatientId), patientData);
         await logAction("EDITAR_PACIENTE", editingPatientId, { nome: formData.name });
       } else {
+        // Enforces LGPD row-level access control requirement by adding userId
         await addDoc(collection(db, "patients"), {
           ...patientData,
+          userId: auth.currentUser.uid,
           lastConsultation: new Date().toLocaleDateString('pt-BR'),
           createdAt: serverTimestamp()
         });
