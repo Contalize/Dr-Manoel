@@ -8,6 +8,7 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
  */
 export async function logAction(action: string, patientId: string, metadata: any = {}) {
   try {
+    await auth.authStateReady();
     const user = auth.currentUser;
     // Não utilizamos await para não bloquear a UI, seguindo as diretrizes de mutação rápida
     addDoc(collection(db, "audit_logs"), {
