@@ -1,0 +1,4 @@
+## 2024-05-24 - [Auth State Race Condition in Audit Logging]
+**Vulnerability:** Audit logs were being recorded with a fallback `userId` of "system" and `userName` of "anonymous" if `auth.currentUser` evaluated to `null`. Because Firebase Auth initializes asynchronously, `auth.currentUser` is often `null` immediately on page load, even if the user is authenticated.
+**Learning:** Accessing `auth.currentUser` directly without awaiting initialization creates a race condition that compromises non-repudiation and breaks LGPD compliance, as sensitive audit trail events could be incorrectly logged without an authenticated user context.
+**Prevention:** Always await `auth.authStateReady()` before accessing `auth.currentUser` in client-side code where non-repudiation or strict user attribution is required. Additionally, explicitly check that the user object exists before proceeding with sensitive operations like audit logging.
