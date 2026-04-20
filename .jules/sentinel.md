@@ -1,0 +1,4 @@
+## 2024-05-24 - [Insecure Local State Key Generation]
+**Vulnerability:** Found `Math.random().toString(36).substr(2, 9)` being used to generate unique IDs (`id_instancia`) for selected therapies in the frontend.
+**Learning:** `Math.random()` is not cryptographically secure and can lead to collisions, particularly if multiple instances are created in tight loops or if the PRNG state is predictable. While used for local state keys here, it's a poor practice for ID generation.
+**Prevention:** Always use `crypto.randomUUID()` for generating unique object identifiers or state keys to ensure cryptographically secure, collision-free values. `Math.random()` should be restricted to purely visual/non-critical randomization.
