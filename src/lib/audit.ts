@@ -8,16 +8,17 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
  */
 export async function logAction(action: string, patientId: string, metadata: any = {}) {
   try {
-    // SECURITY: Await auth state to prevent race conditions attributing actions to "system"
+    // SECURITY: Await auth state to resolve race condition where currentUser is null
+    // immediately on load. Ensure user exists before logging to avoid non-repudiation issues.
     await auth.authStateReady();
     const user = auth.currentUser;
 
     if (!user) {
-      console.warn(`[Security] Attempted to log action '${action}' without authenticated user. Action dropped.`);
+      console.error("Tentativa de ação de auditoria sem usuário autenticado. Ação negada.");
       return;
     }
 
-    // Não utilizamos await na escrita para não bloquear a UI
+    // Não utilizamos await para não bloquear a UI, seguindo as diretrizes de mutação rápida
     addDoc(collection(db, "audit_logs"), {
       userId: user.uid,
       userName: user.email || "anonymous",
