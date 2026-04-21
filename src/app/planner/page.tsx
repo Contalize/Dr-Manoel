@@ -81,7 +81,8 @@ export default function PlannerPage() {
   const addTherapy = (item: MedicamentoReferencia) => {
     const newTherapy: TerapiaSelecionada = {
       ...item,
-      id_instancia: Math.random().toString(36).substr(2, 9),
+      // Security: use crypto.randomUUID instead of Math.random for cryptographically secure IDs
+      id_instancia: crypto.randomUUID(),
       posologia: "A definir"
     };
     setTherapies([...therapies, newTherapy]);
