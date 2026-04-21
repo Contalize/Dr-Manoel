@@ -1,4 +1,9 @@
-## 2026-04-16 - [Missing userId in Patient Creation]
-**Vulnerability:** New patient records were being created without a 'userId' field linking them to the authenticated creator.
-**Learning:** This breaks strict row-level access rules needed for LGPD compliance. Using 'auth.currentUser?.uid' directly on the client can result in race conditions where the auth state isn't initialized yet.
-**Prevention:** Always await 'auth.authStateReady()' to securely resolve the user and explicitly assign 'userId' to all new records during creation to allow for robust row-level security rules.
+## 2024-05-24 - Missing userId in created documents
+**Vulnerability:** Newly created Firestore documents are not appending the user's `userId`.
+**Learning:** This is required by the Firestore rules for proper authorization scoping and access limits per LGPD compliance. But developers often forget to include it on new document creation.
+**Prevention:** Make sure `userId` is added to data being saved via `addDoc()` and `setDoc()`.
+
+## 2024-05-24 - Firebase Auth State Race Condition
+**Vulnerability:** Audit logs were occasionally misattributing sensitive actions to a "system" user due to `auth.currentUser` being evaluated before auth state initialization.
+**Learning:** In Firebase v9+, accessing `auth.currentUser` directly on client load can return `null` momentarily even for authenticated users, creating a race condition.
+**Prevention:** Always await `auth.authStateReady()` before accessing `auth.currentUser` when performing sensitive operations that require attribution.

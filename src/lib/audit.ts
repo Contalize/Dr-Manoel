@@ -8,11 +8,19 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
  */
 export async function logAction(action: string, patientId: string, metadata: any = {}) {
   try {
+    // SECURITY: Await auth state to prevent race conditions attributing actions to "system"
+    await auth.authStateReady();
     const user = auth.currentUser;
-    // Não utilizamos await para não bloquear a UI, seguindo as diretrizes de mutação rápida
+
+    if (!user) {
+      console.warn(`[Security] Attempted to log action '${action}' without authenticated user. Action dropped.`);
+      return;
+    }
+
+    // Não utilizamos await na escrita para não bloquear a UI
     addDoc(collection(db, "audit_logs"), {
-      userId: user?.uid || "system",
-      userName: user?.email || "anonymous",
+      userId: user.uid,
+      userName: user.email || "anonymous",
       action,
       patientId,
       timestamp: serverTimestamp(),
