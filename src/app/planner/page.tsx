@@ -79,9 +79,9 @@ export default function PlannerPage() {
   }, [searchTerm]);
 
   const addTherapy = (item: MedicamentoReferencia) => {
+    // SECURITY: Use cryptographically secure UUID for unique identifiers instead of Math.random
     const newTherapy: TerapiaSelecionada = {
       ...item,
-      // Security: use crypto.randomUUID instead of Math.random for cryptographically secure IDs
       id_instancia: crypto.randomUUID(),
       posologia: "A definir"
     };
