@@ -69,6 +69,7 @@ import { useToast } from "@/hooks/use-toast";
 import { differenceInYears, parseISO } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { getCurrentUser } from "@/lib/auth-utils";
 
 interface Patient {
   id: string;
@@ -219,8 +220,11 @@ export default function PatientsPage() {
         await updateDoc(doc(db, "patients", editingPatientId), patientData);
         await logAction("EDITAR_PACIENTE", editingPatientId, { nome: formData.name });
       } else {
+        const user = await getCurrentUser().catch(() => null);
+
         await addDoc(collection(db, "patients"), {
           ...patientData,
+          userId: user?.uid || "system",
           lastConsultation: new Date().toLocaleDateString('pt-BR'),
           createdAt: serverTimestamp()
         });
