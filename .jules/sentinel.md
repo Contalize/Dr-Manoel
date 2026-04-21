@@ -1,4 +1,4 @@
-## 2025-02-23 - [Insecure Random Number Generation for IDs]
-**Vulnerability:** Found `Math.random().toString(36).substr(2, 9)` being used to generate unique `id_instancia` identifiers in `src/app/planner/page.tsx`. `Math.random()` is not cryptographically secure and relies on a PRNG (Pseudo-Random Number Generator) with predictable outputs, which could lead to ID collisions or predictability, albeit the risk is moderate in frontend state, but violates security best practices.
-**Learning:** It existed likely because it is a common quick pattern for generating temporary random strings in JavaScript when a full UUID library wasn't considered necessary or to save bundle size, without considering the cryptographic weakness of `Math.random()`.
-**Prevention:** Always use `crypto.randomUUID()` to generate unique identifiers in the frontend, which provides a cryptographically secure, collision-free UUIDv4, and is natively supported in modern browsers. `Math.random()` should be restricted to purely visual/non-security randomization.
+## 2026-04-16 - [Missing userId in Patient Creation]
+**Vulnerability:** New patient records were being created without a 'userId' field linking them to the authenticated creator.
+**Learning:** This breaks strict row-level access rules needed for LGPD compliance. Using 'auth.currentUser?.uid' directly on the client can result in race conditions where the auth state isn't initialized yet.
+**Prevention:** Always await 'auth.authStateReady()' to securely resolve the user and explicitly assign 'userId' to all new records during creation to allow for robust row-level security rules.
