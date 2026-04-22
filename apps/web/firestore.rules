@@ -1,0 +1,39 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Configurações globais da clínica (leitura para todos autenticados)
+    match /clinic_settings/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false; 
+    }
+    
+    // Lista de profissionais (leitura para todos autenticados)
+    match /professionals/{docId} {
+      allow read: if request.auth != null;
+    }
+    
+    // Pacientes: Isolamento por professionalId
+    match /patients/{patientId} {
+      allow read: if request.auth != null && resource.data.professionalId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.professionalId == request.auth.uid;
+      allow update: if request.auth != null && resource.data.professionalId == request.auth.uid && request.resource.data.professionalId == request.auth.uid;
+      allow delete: if request.auth != null && resource.data.professionalId == request.auth.uid;
+    }
+    
+    // Sub-coleções clínicas: Isolamento por professionalId
+    match /{collectionName}/{docId} {
+      allow read: if request.auth != null && 
+        collectionName in ['consultations', 'prescriptions', 'evolutions', 'exams', 'audit_logs'] &&
+        (resource == null || resource.data.professionalId == request.auth.uid || resource.data.userId == request.auth.uid);
+        
+      allow create: if request.auth != null && 
+        collectionName in ['consultations', 'prescriptions', 'evolutions', 'exams', 'audit_logs'] &&
+        (request.resource.data.professionalId == request.auth.uid || request.resource.data.userId == request.auth.uid);
+        
+      allow update, delete: if request.auth != null && 
+        collectionName in ['consultations', 'prescriptions', 'evolutions', 'exams', 'audit_logs'] &&
+        (resource.data.professionalId == request.auth.uid || resource.data.userId == request.auth.uid);
+    }
+  }
+}

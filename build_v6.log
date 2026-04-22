@@ -1,0 +1,35 @@
+﻿
+> nextn@0.1.0 build
+> next build
+
+Ôû▓ Next.js 16.2.2 (Turbopack)
+
+  Creating an optimized production build ...
+Ô£ô Compiled successfully in 15.3s
+  Skipping validation of types
+  Finished TypeScript config validation in 82ms ...
+  Collecting page data using 7 workers ...
+node.exe : 
+No linha:1 caractere:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
+    + CategoryInfo         
+     : NotSpecified: (:St  
+  ring) [], RemoteExcept   
+ ion
+    + FullyQualifiedErrorI 
+   d : NativeCommandError
+ 
+> Server Actions are not 
+supported with static 
+export.
+Read more: https://nextjs.o
+rg/docs/app/building-your-a
+pplication/deploying/static
+-exports#unsupported-featur
+es

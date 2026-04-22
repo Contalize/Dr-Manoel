@@ -1,0 +1,21 @@
+{
+  "name": "PharmaZen Clínica Integrativa",
+  "short_name": "PharmaZen",
+  "description": "Gestão inteligente e humanizada para clínicas farmacêuticas integrativas.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F4F7F5",
+  "theme_color": "#2D5A27",
+  "icons": [
+    {
+      "src": "https://picsum.photos/seed/pharmazen/192/192",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://picsum.photos/seed/pharmazen/512/512",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
