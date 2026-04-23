@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import { db, auth } from "@/firebase/config";
+import { getCurrentUser } from "@/lib/auth-utils";
 import { 
   doc, 
   getDoc, 
@@ -150,12 +151,14 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     if (!newEvolution.description) return;
     setIsSubmitting(true);
     try {
+      const user = await getCurrentUser();
       await addDoc(collection(db, "evolutions"), {
         patientId: id,
+        userId: user?.uid, // SECURITY: LGPD row-level access compliance
         date: serverTimestamp(),
         type: newEvolution.type,
         description: newEvolution.description,
-        professionalName: auth.currentUser?.email || "Profissional"
+        professionalName: user?.email || "Profissional"
       });
       await logAction("REGISTRO_EVOLUCAO_CLINICA", id, { tipo: newEvolution.type });
       setNewEvolution({ type: "Medicação", description: "" });

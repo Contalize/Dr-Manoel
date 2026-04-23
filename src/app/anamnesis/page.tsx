@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { db, auth } from "@/firebase/config";
+import { getCurrentUser } from "@/lib/auth-utils";
 import { 
   collection, 
   addDoc, 
@@ -111,11 +112,14 @@ export default function AnamnesisPage() {
 
     setIsSubmitting(true);
     try {
+      const user = await getCurrentUser();
+
       const consultationData = {
         patientId: selectedPatient.id,
         patientName: selectedPatient.name,
+        userId: user?.uid, // SECURITY: LGPD row-level access compliance
         date: serverTimestamp(),
-        professionalName: auth.currentUser?.email || "Profissional",
+        professionalName: user?.email || "Profissional",
         soap: {
           subjective: { complaint, painIntensity, stressLevel },
           objective: { vitalSigns, physicalExam },
@@ -130,10 +134,11 @@ export default function AnamnesisPage() {
       // Também registramos na evolução e prescrição para manter compatibilidade com o prontuário antigo
       await addDoc(collection(db, "evolutions"), {
         patientId: selectedPatient.id,
+        userId: user?.uid, // SECURITY: LGPD row-level access compliance
         date: serverTimestamp(),
         type: "Atendimento",
         description: `Consulta Completa. Queixa: ${complaint}. Procedimentos: ${procedures.length}.`,
-        professionalName: auth.currentUser?.email || "Profissional"
+        professionalName: user?.email || "Profissional"
       });
 
       await logAction("FINALIZAR_ATENDIMENTO_COMPLETO", selectedPatient.id, { paciente: selectedPatient.name });
