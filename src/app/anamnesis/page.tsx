@@ -40,6 +40,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { logAction } from "@/lib/audit";
+import { getCurrentUser } from "@/lib/auth-utils";
 import { useRouter } from "next/navigation";
 
 interface Patient {
@@ -111,11 +112,17 @@ export default function AnamnesisPage() {
 
     setIsSubmitting(true);
     try {
+      const currentUser = await getCurrentUser();
+      if (!currentUser) {
+        throw new Error("User must be authenticated to save consultation.");
+      }
+
       const consultationData = {
         patientId: selectedPatient.id,
         patientName: selectedPatient.name,
+        userId: currentUser.uid,
         date: serverTimestamp(),
-        professionalName: auth.currentUser?.email || "Profissional",
+        professionalName: currentUser.email || "Profissional",
         soap: {
           subjective: { complaint, painIntensity, stressLevel },
           objective: { vitalSigns, physicalExam },
@@ -130,10 +137,11 @@ export default function AnamnesisPage() {
       // Também registramos na evolução e prescrição para manter compatibilidade com o prontuário antigo
       await addDoc(collection(db, "evolutions"), {
         patientId: selectedPatient.id,
+        userId: currentUser.uid,
         date: serverTimestamp(),
         type: "Atendimento",
         description: `Consulta Completa. Queixa: ${complaint}. Procedimentos: ${procedures.length}.`,
-        professionalName: auth.currentUser?.email || "Profissional"
+        professionalName: currentUser.email || "Profissional"
       });
 
       await logAction("FINALIZAR_ATENDIMENTO_COMPLETO", selectedPatient.id, { paciente: selectedPatient.name });
