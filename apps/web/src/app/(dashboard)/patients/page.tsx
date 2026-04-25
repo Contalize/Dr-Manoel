@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react";
-import { db } from "@/firebase/config";
+import { db, auth } from "@/firebase/config";
 import { 
   collection, 
   onSnapshot, 
@@ -200,6 +200,14 @@ export default function PatientsPage() {
 
     setIsSubmitting(true);
     try {
+      // SECURITY: Await authStateReady to securely resolve the user and prevent race conditions
+      await auth.authStateReady();
+      const currentUserId = auth.currentUser?.uid;
+
+      if (!currentUserId) {
+        throw new Error("User must be authenticated to create or edit patient records.");
+      }
+
       const finalBioAge = Number(formData.bioAge) || chronoAgeCalculated;
       
       // Montamos o payload de dados sem o 'serverTimestamp()'.
