@@ -41,6 +41,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { logAction } from "@/lib/audit";
+import { getCurrentUser } from "@/lib/auth-utils";
 import { useRouter } from "next/navigation";
 
 interface Patient {

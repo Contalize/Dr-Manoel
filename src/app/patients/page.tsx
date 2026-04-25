@@ -65,6 +65,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { logAction } from "@/lib/audit";
+import { getCurrentUser } from "@/lib/auth-utils";
 import { useToast } from "@/hooks/use-toast";
 import { differenceInYears, parseISO } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
@@ -200,9 +201,9 @@ export default function PatientsPage() {
 
     setIsSubmitting(true);
     try {
-      // SECURITY: Await authStateReady to securely resolve the user and prevent race conditions
-      await auth.authStateReady();
-      const currentUserId = auth.currentUser?.uid;
+      // SECURITY: Use getCurrentUser to securely resolve the user and prevent race conditions
+      const currentUser = await getCurrentUser();
+      const currentUserId = currentUser?.uid;
 
       if (!currentUserId) {
         throw new Error("User must be authenticated to create or edit patient records.");

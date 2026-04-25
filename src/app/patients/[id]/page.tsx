@@ -65,6 +65,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { logAction } from "@/lib/audit";
+import { getCurrentUser } from "@/lib/auth-utils";
 import { cn } from "@/lib/utils";
 import { NewPrescriptionDialog } from "@/components/prescriptions/NewPrescriptionDialog";
 
