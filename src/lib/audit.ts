@@ -1,6 +1,7 @@
 
-import { db, auth } from "@/firebase/config";
+import { db } from "@/firebase/config";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { getCurrentUser } from "@/lib/auth-utils";
 
 /**
  * Registra uma ação sensível na trilha de auditoria para conformidade LGPD e RDC/ANVISA.
@@ -8,10 +9,9 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
  */
 export async function logAction(action: string, patientId: string, metadata: any = {}) {
   try {
-    // SECURITY: Await auth state to resolve race condition where currentUser is null
+    // SECURITY: Use getCurrentUser to resolve race condition where currentUser is null
     // immediately on load. Ensure user exists before logging to avoid non-repudiation issues.
-    await auth.authStateReady();
-    const user = auth.currentUser;
+    const user = await getCurrentUser();
 
     if (!user) {
       console.error("Tentativa de ação de auditoria sem usuário autenticado. Ação negada.");
