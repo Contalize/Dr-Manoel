@@ -202,12 +202,9 @@ export default function PatientsPage() {
 
     setIsSubmitting(true);
     try {
-      // SECURITY: Use getCurrentUser to securely resolve the user and prevent race conditions
-      const currentUser = await getCurrentUser();
-      const currentUserId = currentUser?.uid;
-
-      if (!currentUserId) {
-        throw new Error("User must be authenticated to create or edit patient records.");
+      await auth.authStateReady();
+      if (!auth.currentUser) {
+        throw new Error("Usuário não autenticado.");
       }
 
       const finalBioAge = Number(formData.bioAge) || chronoAgeCalculated;
@@ -233,9 +230,7 @@ export default function PatientsPage() {
 
         await addDoc(collection(db, "patients"), {
           ...patientData,
-          userId: user?.uid || "system",
-          // SECURITY: Explicitly associate document with authenticated user's ID for LGPD compliance row-level access rules
-          userId: currentUserId,
+          userId: auth.currentUser.uid, // Required for strict row-level access control
           lastConsultation: new Date().toLocaleDateString('pt-BR'),
           createdAt: serverTimestamp()
         });
