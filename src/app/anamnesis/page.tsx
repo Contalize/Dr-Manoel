@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { db, auth } from "@/firebase/config";
+import { getCurrentUser } from "@/lib/auth-utils";
 import { 
   collection, 
   addDoc, 
@@ -112,17 +113,14 @@ export default function AnamnesisPage() {
 
     setIsSubmitting(true);
     try {
-      const currentUser = await getCurrentUser();
-      if (!currentUser) {
-        throw new Error("User must be authenticated to save consultation.");
-      }
+      const user = await getCurrentUser();
 
       const consultationData = {
         patientId: selectedPatient.id,
         patientName: selectedPatient.name,
-        userId: currentUser.uid,
+        userId: user?.uid, // SECURITY: LGPD row-level access compliance
         date: serverTimestamp(),
-        professionalName: currentUser.email || "Profissional",
+        professionalName: user?.email || "Profissional",
         soap: {
           subjective: { complaint, painIntensity, stressLevel },
           objective: { vitalSigns, physicalExam },
@@ -137,11 +135,11 @@ export default function AnamnesisPage() {
       // Também registramos na evolução e prescrição para manter compatibilidade com o prontuário antigo
       await addDoc(collection(db, "evolutions"), {
         patientId: selectedPatient.id,
-        userId: currentUser.uid,
+        userId: user?.uid, // SECURITY: LGPD row-level access compliance
         date: serverTimestamp(),
         type: "Atendimento",
         description: `Consulta Completa. Queixa: ${complaint}. Procedimentos: ${procedures.length}.`,
-        professionalName: currentUser.email || "Profissional"
+        professionalName: user?.email || "Profissional"
       });
 
       await logAction("FINALIZAR_ATENDIMENTO_COMPLETO", selectedPatient.id, { paciente: selectedPatient.name });
