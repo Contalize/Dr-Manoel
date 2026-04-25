@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { db, auth } from "@/firebase/config";
+import { getCurrentUser } from "@/lib/auth-utils";
 import { 
   collection, 
   addDoc, 
@@ -40,7 +41,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { logAction } from "@/lib/audit";
+import { getCurrentUser } from "@/lib/auth-utils";
 import { useRouter } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth-utils";
 
 interface Patient {
   id: string;
@@ -111,11 +114,14 @@ export default function AnamnesisPage() {
 
     setIsSubmitting(true);
     try {
+      const user = await getCurrentUser().catch(() => null);
+
       const consultationData = {
         patientId: selectedPatient.id,
         patientName: selectedPatient.name,
+        userId: user?.uid || "system",
         date: serverTimestamp(),
-        professionalName: auth.currentUser?.email || "Profissional",
+        professionalName: user?.email || "Profissional",
         soap: {
           subjective: { complaint, painIntensity, stressLevel },
           objective: { vitalSigns, physicalExam },
@@ -130,10 +136,11 @@ export default function AnamnesisPage() {
       // Também registramos na evolução e prescrição para manter compatibilidade com o prontuário antigo
       await addDoc(collection(db, "evolutions"), {
         patientId: selectedPatient.id,
+        userId: user?.uid || "system",
         date: serverTimestamp(),
         type: "Atendimento",
         description: `Consulta Completa. Queixa: ${complaint}. Procedimentos: ${procedures.length}.`,
-        professionalName: auth.currentUser?.email || "Profissional"
+        professionalName: user?.email || "Profissional"
       });
 
       await logAction("FINALIZAR_ATENDIMENTO_COMPLETO", selectedPatient.id, { paciente: selectedPatient.name });

@@ -79,9 +79,10 @@ export default function PlannerPage() {
   }, [searchTerm]);
 
   const addTherapy = (item: MedicamentoReferencia) => {
+    // SECURITY: Use cryptographically secure UUID for unique identifiers instead of Math.random
     const newTherapy: TerapiaSelecionada = {
       ...item,
-      id_instancia: Math.random().toString(36).substr(2, 9),
+      id_instancia: crypto.randomUUID(),
       posologia: "A definir"
     };
     setTherapies([...therapies, newTherapy]);
