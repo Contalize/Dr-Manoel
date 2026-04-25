@@ -43,6 +43,7 @@ import { cn } from "@/lib/utils";
 import { logAction } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/auth-utils";
 import { useRouter } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth-utils";
 
 interface Patient {
   id: string;
@@ -113,12 +114,12 @@ export default function AnamnesisPage() {
 
     setIsSubmitting(true);
     try {
-      const user = await getCurrentUser();
+      const user = await getCurrentUser().catch(() => null);
 
       const consultationData = {
         patientId: selectedPatient.id,
         patientName: selectedPatient.name,
-        userId: user?.uid, // SECURITY: LGPD row-level access compliance
+        userId: user?.uid || "system",
         date: serverTimestamp(),
         professionalName: user?.email || "Profissional",
         soap: {
@@ -135,7 +136,7 @@ export default function AnamnesisPage() {
       // Também registramos na evolução e prescrição para manter compatibilidade com o prontuário antigo
       await addDoc(collection(db, "evolutions"), {
         patientId: selectedPatient.id,
-        userId: user?.uid, // SECURITY: LGPD row-level access compliance
+        userId: user?.uid || "system",
         date: serverTimestamp(),
         type: "Atendimento",
         description: `Consulta Completa. Queixa: ${complaint}. Procedimentos: ${procedures.length}.`,

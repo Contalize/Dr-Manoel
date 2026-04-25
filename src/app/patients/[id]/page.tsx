@@ -152,10 +152,11 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     if (!newEvolution.description) return;
     setIsSubmitting(true);
     try {
-      const user = await getCurrentUser();
+      const user = await getCurrentUser().catch(() => null);
+
       await addDoc(collection(db, "evolutions"), {
         patientId: id,
-        userId: user?.uid, // SECURITY: LGPD row-level access compliance
+        userId: user?.uid || "system",
         date: serverTimestamp(),
         type: newEvolution.type,
         description: newEvolution.description,

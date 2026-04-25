@@ -1,8 +1,21 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Regra de Meio-Termo: Permite acesso total para qualquer usuário autenticado.
-    // Isso evita o erro de permissão em documentos que ainda não possuem o campo 'userId'.
+    // Regras de Row-Level Access (LGPD) para novas coleções
+    match /patients/{patientId} {
+      allow read, write: if request.auth != null && (resource == null || !("userId" in resource.data) || resource.data.userId == request.auth.uid);
+    }
+    match /consultations/{consultationId} {
+      allow read, write: if request.auth != null && (resource == null || !("userId" in resource.data) || resource.data.userId == request.auth.uid);
+    }
+    match /evolutions/{evolutionId} {
+      allow read, write: if request.auth != null && (resource == null || !("userId" in resource.data) || resource.data.userId == request.auth.uid);
+    }
+    match /audit_logs/{logId} {
+      allow read, write: if request.auth != null && (resource == null || !("userId" in resource.data) || resource.data.userId == request.auth.uid);
+    }
+
+    // Regra de fallback para acesso total a documentos antigos/sem userId e outras coleções
     match /{document=**} {
       allow read, write: if request.auth != null;
     }

@@ -1,6 +1,7 @@
 
 import { db } from "@/firebase/config";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { getCurrentUser } from "./auth-utils";
 import { getCurrentUser } from "@/lib/auth-utils";
 
 /**
@@ -9,6 +10,7 @@ import { getCurrentUser } from "@/lib/auth-utils";
  */
 export async function logAction(action: string, patientId: string, metadata: any = {}) {
   try {
+    const user = await getCurrentUser().catch(() => null);
     // SECURITY: Use getCurrentUser to resolve race condition where currentUser is null
     // immediately on load. Ensure user exists before logging to avoid non-repudiation issues.
     const user = await getCurrentUser();
