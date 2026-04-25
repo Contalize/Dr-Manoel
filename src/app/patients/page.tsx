@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react";
-import { db } from "@/firebase/config";
+import { db, auth } from "@/firebase/config";
 import { 
   collection, 
   onSnapshot, 
@@ -65,6 +65,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { logAction } from "@/lib/audit";
+import { getCurrentUser } from "@/lib/auth-utils";
 import { useToast } from "@/hooks/use-toast";
 import { differenceInYears, parseISO } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
@@ -201,6 +202,14 @@ export default function PatientsPage() {
 
     setIsSubmitting(true);
     try {
+      // SECURITY: Use getCurrentUser to securely resolve the user and prevent race conditions
+      const currentUser = await getCurrentUser();
+      const currentUserId = currentUser?.uid;
+
+      if (!currentUserId) {
+        throw new Error("User must be authenticated to create or edit patient records.");
+      }
+
       const finalBioAge = Number(formData.bioAge) || chronoAgeCalculated;
       const patientData = {
         name: formData.name,
@@ -225,6 +234,8 @@ export default function PatientsPage() {
         await addDoc(collection(db, "patients"), {
           ...patientData,
           userId: user?.uid || "system",
+          // SECURITY: Explicitly associate document with authenticated user's ID for LGPD compliance row-level access rules
+          userId: currentUserId,
           lastConsultation: new Date().toLocaleDateString('pt-BR'),
           createdAt: serverTimestamp()
         });

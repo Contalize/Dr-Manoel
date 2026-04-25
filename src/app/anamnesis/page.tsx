@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { db, auth } from "@/firebase/config";
+import { getCurrentUser } from "@/lib/auth-utils";
 import { 
   collection, 
   addDoc, 
@@ -40,6 +41,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { logAction } from "@/lib/audit";
+import { getCurrentUser } from "@/lib/auth-utils";
 import { useRouter } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth-utils";
 

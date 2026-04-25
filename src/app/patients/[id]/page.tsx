@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import { db, auth } from "@/firebase/config";
+import { getCurrentUser } from "@/lib/auth-utils";
 import { 
   doc, 
   getDoc, 
