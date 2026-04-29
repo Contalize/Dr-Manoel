@@ -1,16 +1,27 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { db } from "@/firebase/config"
-import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore"
+import { collection, query, where, getDocs, doc, getDoc, onSnapshot } from "firebase/firestore"
 import { useAuth } from "@/contexts/AuthContext"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Stethoscope, Pill, UserPlus, Users, Activity, FileText, Loader2, Calendar } from "lucide-react"
 import Link from "next/link"
+import { Badge } from "@/components/ui/badge"
 import { NewPrescriptionDialog } from "@/components/prescriptions/NewPrescriptionDialog"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
+
+interface Appointment {
+  id: string;
+  patientId?: string;
+  patientName: string;
+  time: string;
+  date: string;
+  status: 'Scheduled' | 'Confirmed' | 'Completed' | 'No-show';
+  type: string;
+}
 
 export default function DashboardPage() {
   const { user } = useAuth()
@@ -19,6 +30,29 @@ export default function DashboardPage() {
   
   const [todayConsultations, setTodayConsultations] = useState(0)
   const [recentPrescriptions, setRecentPrescriptions] = useState<any[]>([])
+  const [appointments, setAppointments] = useState<Appointment[]>([])
+
+  // Subscrição em tempo real dos agendamentos de hoje
+  useEffect(() => {
+    const todayStr = format(new Date(), "yyyy-MM-dd")
+    const q = query(collection(db, "appointments"), where("date", "==", todayStr))
+    const unsub = onSnapshot(q, (snap) => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Appointment))
+      data.sort((a, b) => a.time.localeCompare(b.time))
+      setAppointments(data)
+    })
+    return () => unsub()
+  }, [])
+
+  // Próximo agendamento pendente
+  const nextAppointment = useMemo(() => {
+    const now = new Date()
+    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+    const upcoming = appointments
+      .filter(a => (a.status === 'Scheduled' || a.status === 'Confirmed') && a.time >= currentTime)
+      .sort((a, b) => a.time.localeCompare(b.time))
+    return upcoming[0] || null
+  }, [appointments])
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -98,6 +132,54 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Card: Próximo Atendimento */}
+      {nextAppointment && (
+        <Card className="border-none shadow-md bg-white overflow-hidden">
+          <div className="flex items-center gap-0">
+            <div className="w-1.5 self-stretch bg-primary flex-shrink-0" />
+            <CardContent className="flex-1 p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="bg-primary/10 p-3 rounded-xl flex-shrink-0">
+                  <Stethoscope className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    Próximo atendimento
+                  </p>
+                  <p className="text-base font-bold text-slate-900 mt-0.5">
+                    {nextAppointment.patientName}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {nextAppointment.time} · {nextAppointment.type}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Link href={`/patients/detail?id=${nextAppointment.patientId || ''}`}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 text-xs border-primary/20 text-primary hover:bg-primary/5"
+                    disabled={!nextAppointment.patientId}
+                  >
+                    Ver ficha
+                  </Button>
+                </Link>
+                <Link href={`/anamnesis?patientId=${nextAppointment.patientId || ''}&patientName=${encodeURIComponent(nextAppointment.patientName)}&appointmentId=${nextAppointment.id}`}>
+                  <Button
+                    size="sm"
+                    className="h-9 text-xs bg-primary text-white hover:bg-primary/90 shadow-md font-bold"
+                  >
+                    <Stethoscope className="h-3.5 w-3.5 mr-1.5" />
+                    Iniciar atendimento
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </div>
+        </Card>
+      )}
+
       {/* Ações Rápidas */}
       <div>
         <div className="flex items-center gap-2 mb-4">
@@ -134,7 +216,7 @@ export default function DashboardPage() {
             } 
           />
 
-          <Link href="/patients/new" className="group">
+          <Link href="/patients" className="group">
             <Card className="border border-slate-100 hover:border-emerald-500/30 hover:shadow-xl transition-all h-full bg-white group-hover:-translate-y-1 duration-300">
               <CardContent className="p-5 flex flex-col items-center text-center gap-3">
                 <div className="bg-emerald-50 p-3 rounded-xl text-emerald-600 group-hover:scale-110 transition-transform">
@@ -189,7 +271,16 @@ export default function DashboardPage() {
                         <Calendar className="h-3 w-3" /> {rx.date?.toDate() ? format(rx.date.toDate(), "dd/MM/yyyy • HH:mm") : "Recente"}
                       </p>
                     </div>
-                    <Badge variant="outline" className="bg-accent/5 text-accent border-none">{rx.medications?.length} iten(s)</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="bg-accent/5 text-accent border-none">{rx.medications?.length} iten(s)</Badge>
+                      {rx.patientId && (
+                        <Link href={`/anamnesis?patientId=${rx.patientId}&patientName=${encodeURIComponent(rx.patientName)}`}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:bg-primary/10 flex-shrink-0" title="Iniciar atendimento">
+                            <Stethoscope className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

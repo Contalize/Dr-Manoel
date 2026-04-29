@@ -2,8 +2,8 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { api } from "@/lib/api"
-import { useAuthStore } from "@/store/useAuthStore"
+import { signInWithEmailAndPassword } from "firebase/auth"
+import { auth } from "@/firebase/config"
 import Link from "next/link"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -23,15 +23,10 @@ export default function LoginPage() {
     e.preventDefault()
     setIsLoading(true)
     try {
-      const response = await api.post('/auth/login', { email, passwordHash: password })
-      const { access_token, user } = response.data
-      
-      const setAuth = useAuthStore.getState().setAuth
-      setAuth(user, access_token)
-      
+      await signInWithEmailAndPassword(auth, email, password)
       toast({
         title: "Acesso Autorizado",
-        description: "Bem-vindo à plataforma clínica Manoel da Famarcia.",
+        description: "Bem-vindo à plataforma clínica Manoel da Farmácia.",
       })
       router.push("/")
     } catch (error: any) {

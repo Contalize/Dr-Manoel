@@ -3,7 +3,6 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { ClinicProvider } from '@/contexts/ClinicContext';
 import { AuthProvider } from '@/contexts/AuthContext';
-import QueryProvider from '@/providers/QueryProvider';
 
 export const metadata: Metadata = {
   title: 'PharmaZen | Clínica Integrativa Manoel da Farmácia',
@@ -38,14 +37,12 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" />
       </head>
       <body className="font-body antialiased h-screen bg-background overflow-hidden">
-        <QueryProvider>
-          <AuthProvider>
-            <ClinicProvider>
-              {children}
-              <Toaster />
-            </ClinicProvider>
-          </AuthProvider>
-        </QueryProvider>
+        <AuthProvider>
+          <ClinicProvider>
+            {children}
+            <Toaster />
+          </ClinicProvider>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -51,6 +51,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { logAction } from "@/lib/audit"
 import { useClinic } from "@/contexts/ClinicContext"
+import { useAuth } from "@/contexts/AuthContext"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 
 const ADMINISTRATION_ROUTES = [
@@ -120,6 +121,7 @@ export function NewPrescriptionDialog({ initialPatientId, initialPatientName, tr
 
   const { toast } = useToast()
   const { professionals } = useClinic()
+  const { user } = useAuth()
 
   const isControlled = isOpen !== undefined;
   const currentOpen = isControlled ? isOpen : open;
@@ -140,6 +142,16 @@ export function NewPrescriptionDialog({ initialPatientId, initialPatientName, tr
     }
   }, [initialPatientId, currentOpen, form]);
 
+  // Auto-seleciona o profissional logado
+  React.useEffect(() => {
+    if (currentOpen && professionals.length > 0 && user?.uid) {
+      const myProf = professionals.find(p => p.id === user.uid);
+      if (myProf && !form.getValues("professionalId")) {
+        form.setValue("professionalId", myProf.id);
+      }
+    }
+  }, [currentOpen, professionals, user?.uid, form]);
+
   const { fields, append, remove } = useFieldArray({
     name: "medications",
     control: form.control,
@@ -147,9 +159,14 @@ export function NewPrescriptionDialog({ initialPatientId, initialPatientName, tr
 
   React.useEffect(() => {
     const fetchPatients = async () => {
+      if (!user?.uid) return;
       setIsSearchingPatients(true)
       try {
-        const q = query(collection(db, "patients"), where("status", "==", "active"))
+        const q = query(
+          collection(db, "patients"),
+          where("professionalId", "==", user.uid),
+          where("status", "==", "active")
+        )
         const querySnapshot = await getDocs(q)
         setPatients(querySnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name, cpf: doc.data().cpf })))
       } catch (error) {
@@ -158,7 +175,7 @@ export function NewPrescriptionDialog({ initialPatientId, initialPatientName, tr
       }
     }
     if (currentOpen && patients.length === 0) fetchPatients()
-  }, [currentOpen, patients.length])
+  }, [currentOpen, patients.length, user?.uid])
 
   // Fake API debounce
   React.useEffect(() => {

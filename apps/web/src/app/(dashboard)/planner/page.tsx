@@ -2,11 +2,15 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react";
-import { db } from "@/firebase/config";
+import { db, auth } from "@/firebase/config";
 import { 
   addDoc, 
   collection,
-  serverTimestamp 
+  serverTimestamp,
+  query,
+  where,
+  getDocs,
+  limit
 } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +56,62 @@ export default function PlannerPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
+
+  interface PatientOption {
+    id: string;
+    name: string;
+    cpf: string;
+  }
+
+  const [patientSearch, setPatientSearch] = useState("");
+  const [patientResults, setPatientResults] = useState<PatientOption[]>([]);
+  const [selectedPatient, setSelectedPatient] = useState<PatientOption | null>(null);
+  const [isSearchingPatient, setIsSearchingPatient] = useState(false);
+
+  useEffect(() => {
+    const search = async () => {
+      if (patientSearch.length > 2) {
+        setIsSearchingPatient(true);
+        const q = query(
+          collection(db, "patients"),
+          where("name", ">=", patientSearch),
+          where("name", "<=", patientSearch + "\uf8ff"),
+          limit(5)
+        );
+        const snap = await getDocs(q);
+        setPatientResults(snap.docs.map(d => ({ id: d.id, name: d.data().name, cpf: d.data().cpf } as PatientOption)));
+        setIsSearchingPatient(false);
+      } else {
+        setPatientResults([]);
+      }
+    };
+    const timer = setTimeout(search, 300);
+    return () => clearTimeout(timer);
+  }, [patientSearch]);
+
+  const loadPatientContext = async (patient: PatientOption) => {
+    try {
+      // Buscar a última consulta SOAP do paciente
+      const q = query(
+        collection(db, "consultations"),
+        where("patientId", "==", patient.id),
+        limit(1)
+      );
+      const snap = await getDocs(q);
+      
+      if (!snap.empty) {
+        const lastConsult = snap.docs[0].data();
+        const complaint = lastConsult.soap?.subjective?.complaint || "";
+        
+        // Auto-preencher o resumo clínico
+        if (complaint) {
+          setAnamnesisSummary(`Última queixa: ${complaint}`);
+        }
+      }
+    } catch (error) {
+      console.error("Erro ao carregar contexto do paciente:", error);
+    }
+  };
 
   // Função para normalizar strings (remover acentos e lowercase)
   const normalizeString = (str: string) => {
@@ -140,12 +200,77 @@ export default function PlannerPage() {
   };
 
   const saveProtocol = async () => {
+    if (!selectedPatient) {
+      toast({
+        title: "Paciente não selecionado",
+        description: "Vincule um paciente antes de salvar o protocolo.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!protocolName || therapies.length === 0) {
+      toast({
+        title: "Protocolo incompleto",
+        description: "Adicione um título e pelo menos uma terapia.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsSaving(true);
     try {
-      await logAction("SALVAR_PROTOCOLO_AUDITADO", "N/A", { protocolo: protocolName });
+      // Salvar na coleção protocols
+      await addDoc(collection(db, "protocols"), {
+        patientId: selectedPatient.id,
+        patientName: selectedPatient.name,
+        protocolName,
+        anamnesisSummary,
+        therapies: therapies.map(t => ({
+          nome: t.nome_comercial,
+          principioAtivo: t.principio_ativo,
+          categoria: t.categoria,
+          posologia: t.posologia,
+          contraindicacoes: t.contraindicacoes
+        })),
+        aiExplanation: explanation || "",
+        createdAt: serverTimestamp(),
+        createdBy: auth.currentUser?.email || "Profissional",
+        status: "Ativo"
+      });
+
+      // Registrar na evolução do paciente para aparecer no timeline
+      await addDoc(collection(db, "evolutions"), {
+        patientId: selectedPatient.id,
+        date: serverTimestamp(),
+        type: "Protocolo",
+        description: `Protocolo Integrativo criado: "${protocolName}" com ${therapies.length} terapia(s).`,
+        professionalName: auth.currentUser?.email || "Profissional"
+      });
+
+      await logAction("SALVAR_PROTOCOLO_AUDITADO", selectedPatient.id, {
+        protocolo: protocolName,
+        paciente: selectedPatient.name,
+        terapias: therapies.length
+      });
+
       toast({
-        title: "Protocolo Arquivado",
-        description: "Documento salvo em conformidade com RDC/ANVISA.",
+        title: "Protocolo salvo no prontuário",
+        description: `${protocolName} vinculado a ${selectedPatient.name}.`,
+      });
+
+      // Reset do formulário após salvar
+      setProtocolName("");
+      setAnamnesisSummary("");
+      setTherapies([]);
+      setExplanation("");
+      setSelectedPatient(null);
+
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Erro ao salvar protocolo",
+        variant: "destructive"
       });
     } finally {
       setIsSaving(false);
@@ -180,6 +305,55 @@ export default function PlannerPage() {
               <CardDescription className="text-white/80">Essencial para o cruzamento de interações medicamentosas.</CardDescription>
             </CardHeader>
             <CardContent className="p-6 space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-primary uppercase tracking-widest">Vincular Paciente</label>
+                {selectedPatient ? (
+                  <div className="flex items-center justify-between p-3 bg-primary/5 border border-primary/20 rounded-xl">
+                    <div>
+                      <p className="text-sm font-bold text-primary">{selectedPatient.name}</p>
+                      <p className="text-[10px] text-muted-foreground">CPF: {selectedPatient.cpf}</p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => { setSelectedPatient(null); setPatientSearch(""); setPatientResults([]); }}
+                    >
+                      Trocar
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Buscar paciente por nome..."
+                        value={patientSearch}
+                        onChange={(e) => setPatientSearch(e.target.value)}
+                        className="pl-9 bg-secondary/20 border-none h-12 text-sm"
+                      />
+                    </div>
+                    {patientResults.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden">
+                        {patientResults.map(p => (
+                          <button
+                            key={p.id}
+                            className="w-full text-left px-4 py-3 hover:bg-primary/5 transition-colors border-b border-slate-50 last:border-0"
+                            onClick={() => {
+                              setSelectedPatient(p);
+                              setPatientSearch("");
+                              setPatientResults([]);
+                              loadPatientContext(p);
+                            }}
+                          >
+                            <p className="text-sm font-bold text-slate-800">{p.name}</p>
+                            <p className="text-[10px] text-muted-foreground">CPF: {p.cpf}</p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
               <div className="space-y-2">
                 <label className="text-xs font-bold text-primary uppercase tracking-widest">Nome do Protocolo Integrativo</label>
                 <Input 

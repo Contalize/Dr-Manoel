@@ -1,39 +1,159 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Configurações globais da clínica (leitura para todos autenticados)
+
+    // ── Funções auxiliares ───────────────────────────────────────
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(professionalIdField) {
+      return resource.data[professionalIdField] == request.auth.uid;
+    }
+
+    function isCreatingAsOwner(professionalIdField) {
+      return request.resource.data[professionalIdField] == request.auth.uid;
+    }
+
+    // hasRole() consulta o documento do usuário para verificar a role.
+    // ATIVAÇÃO: requer que o campo `role` esteja presente em /users/{uid}.
+    // Valores válidos: "medico" | "farmaceutico" | "admin" | "recepcionista"
+    // Enquanto o sistema de roles não for semeado, use isAuthenticated() + isolamento por uid.
+    function hasRole(role) {
+      return isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    }
+
+    function hasFinancialWriteAccess() {
+      return isAuthenticated() && (
+        hasRole("medico") || hasRole("farmaceutico") || hasRole("admin")
+      );
+    }
+
+    // ── Perfil do usuário ────────────────────────────────────────
+    // Cada usuário só acessa o próprio documento
+    match /users/{userId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ── Configurações da clínica ─────────────────────────────────
+    // Leitura e escrita para qualquer usuário autenticado
     match /clinic_settings/{docId} {
-      allow read: if request.auth != null;
-      allow write: if false; 
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
     }
-    
-    // Lista de profissionais (leitura para todos autenticados)
+
+    // ── Profissionais ────────────────────────────────────────────
+    // Leitura para todos autenticados; escrita pelo próprio profissional
     match /professionals/{docId} {
-      allow read: if request.auth != null;
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && request.auth.uid == docId;
     }
-    
-    // Pacientes: Isolamento por professionalId
+
+    // ── Pacientes ────────────────────────────────────────────────
+    // Isolamento total por professionalId
     match /patients/{patientId} {
-      allow read: if request.auth != null && resource.data.professionalId == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.professionalId == request.auth.uid;
-      allow update: if request.auth != null && resource.data.professionalId == request.auth.uid && request.resource.data.professionalId == request.auth.uid;
-      allow delete: if request.auth != null && resource.data.professionalId == request.auth.uid;
+      allow read: if isAuthenticated() && isOwner("professionalId");
+      allow create: if isAuthenticated() && isCreatingAsOwner("professionalId");
+      allow update: if isAuthenticated()
+        && isOwner("professionalId")
+        && isCreatingAsOwner("professionalId");
+      allow delete: if isAuthenticated() && isOwner("professionalId");
     }
-    
-    // Sub-coleções clínicas: Isolamento por professionalId
-    match /{collectionName}/{docId} {
-      allow read: if request.auth != null && 
-        collectionName in ['consultations', 'prescriptions', 'evolutions', 'exams', 'audit_logs'] &&
-        (resource == null || resource.data.professionalId == request.auth.uid || resource.data.userId == request.auth.uid);
-        
-      allow create: if request.auth != null && 
-        collectionName in ['consultations', 'prescriptions', 'evolutions', 'exams', 'audit_logs'] &&
-        (request.resource.data.professionalId == request.auth.uid || request.resource.data.userId == request.auth.uid);
-        
-      allow update, delete: if request.auth != null && 
-        collectionName in ['consultations', 'prescriptions', 'evolutions', 'exams', 'audit_logs'] &&
-        (resource.data.professionalId == request.auth.uid || resource.data.userId == request.auth.uid);
+
+    // ── Agendamentos ─────────────────────────────────────────────
+    // Qualquer profissional autenticado pode gerenciar a agenda da clínica
+    match /appointments/{appointmentId} {
+      allow read, create: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
     }
+
+    // ── Registros clínicos ───────────────────────────────────────
+    // Leitura: profissional autenticado que criou o registro OU que é dono do paciente.
+    // O acesso ao patientId já é controlado pelas regras de /patients.
+    // Escrita: apenas o profissional dono do registro.
+    // Deleção: nunca — registros clínicos são imutáveis por LGPD/auditoria.
+
+    match /consultations/{docId} {
+      allow read: if isAuthenticated()
+        && (resource.data.professionalId == request.auth.uid
+            || resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && isCreatingAsOwner("professionalId");
+      allow update: if isAuthenticated() && isOwner("professionalId");
+      allow delete: if false;
+    }
+
+    match /prescriptions/{docId} {
+      allow read: if isAuthenticated()
+        && (resource.data.professionalId == request.auth.uid
+            || resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && isCreatingAsOwner("professionalId");
+      allow update: if isAuthenticated() && isOwner("professionalId");
+      allow delete: if false;
+    }
+
+    match /evolutions/{docId} {
+      allow read: if isAuthenticated()
+        && (resource.data.professionalId == request.auth.uid
+            || resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && isCreatingAsOwner("professionalId");
+      allow update: if isAuthenticated() && isOwner("professionalId");
+      allow delete: if false;
+    }
+
+    match /exams/{docId} {
+      allow read: if isAuthenticated()
+        && (resource.data.professionalId == request.auth.uid
+            || resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && isCreatingAsOwner("professionalId");
+      allow update: if isAuthenticated() && isOwner("professionalId");
+      allow delete: if isAuthenticated() && isOwner("professionalId");
+    }
+
+    match /protocols/{docId} {
+      allow read: if isAuthenticated()
+        && (resource.data.professionalId == request.auth.uid
+            || resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && isCreatingAsOwner("professionalId");
+      allow update: if isAuthenticated() && isOwner("professionalId");
+      allow delete: if false;
+    }
+
+    // ── Transações financeiras ───────────────────────────────────
+    // Leitura: isolada por uid (cada profissional vê apenas seus próprios lançamentos).
+    // Escrita: requer role clínica (médico/farmacêutico/admin) OU ser o criador do registro.
+    // NOTA: enquanto roles não forem semeados nos documentos /users/{uid},
+    //       a criação via batch da anamnese passa pela verificação de createdByUid.
+    match /transactions/{docId} {
+      allow read: if isAuthenticated() && resource.data.createdByUid == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.createdByUid == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.createdByUid == request.auth.uid;
+      allow delete: if false; // Registros financeiros são imutáveis (compliance)
+    }
+
+    // ── Coleção financeira avançada (futura expansão) ─────────────
+    // Reservado para quando o módulo financeiro evoluir para faturamento
+    // por empresa (PJ) com múltiplos profissionais por conta.
+    // Requer que /users/{uid}.role esteja semeado para ativar hasFinancialWriteAccess().
+    match /financeiro/{docId} {
+      allow read: if isAuthenticated() && resource.data.createdByUid == request.auth.uid;
+      allow create: if hasFinancialWriteAccess()
+        && request.resource.data.createdByUid == request.auth.uid;
+      allow update: if hasFinancialWriteAccess()
+        && resource.data.createdByUid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // ── Log de Auditoria (LGPD) ──────────────────────────────────
+    // Apenas criação permitida; ninguém pode apagar ou alterar logs
+    match /audit_logs/{docId} {
+      allow read: if isAuthenticated()
+        && (resource.data.userId == request.auth.uid
+            || resource.data.professionalId == request.auth.uid);
+      allow create: if isAuthenticated();
+      allow update, delete: if false; // Logs são permanentes e imutáveis
+    }
+
   }
 }

@@ -2,28 +2,29 @@
 
 import { useState, useEffect } from "react";
 import { db, auth } from "@/firebase/config";
-import { 
-  collection, 
-  addDoc, 
-  serverTimestamp, 
-  query, 
-  getDocs, 
+import {
+  collection,
+  writeBatch,
+  serverTimestamp,
+  query,
+  getDocs,
   where,
   limit,
   doc,
-  updateDoc
+  getDoc
 } from "firebase/firestore";
+import { useSearchParams } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  Stethoscope, 
-  Activity, 
-  Save, 
-  ArrowRight, 
+import {
+  Stethoscope,
+  Activity,
+  Save,
+  ArrowRight,
   ArrowLeft,
   CheckCircle2,
   Plus,
@@ -33,8 +34,16 @@ import {
   Search,
   User,
   Loader2,
-  ClipboardList
+  ClipboardList,
+  CircleDollarSign
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
@@ -57,6 +66,12 @@ export default function AnamnesisPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Parâmetros de URL para pré-seleção de paciente
+  const urlPatientId = searchParams.get("patientId");
+  const urlPatientName = searchParams.get("patientName");
+  const urlAppointmentId = searchParams.get("appointmentId");
 
   // Estados de Busca de Paciente
   const [searchTerm, setSearchTerm] = useState("");
@@ -77,23 +92,61 @@ export default function AnamnesisPage() {
   // Estado para abrir a prescrição ao final
   const [isPrescriptionOpen, setIsPrescriptionOpen] = useState(false);
 
+  // Dados de faturamento (Step 3)
+  const [billValue, setBillValue] = useState("");
+  const [tipoCliente, setTipoCliente] = useState<"PF" | "PJ">("PF");
+  const [categoriaServico, setCategoriaServico] = useState("Consulta Clínica Integrativa");
+
   const totalSteps = 3;
   const progress = (step / totalSteps) * 100;
 
-  // Busca de Pacientes
+  // Pré-seleção de paciente via URL (fluxo: Agenda → Iniciar Atendimento)
+  useEffect(() => {
+    if (!urlPatientId || !urlPatientName) return;
+
+    const loadUrlPatient = async () => {
+      try {
+        // Feedback imediato com dados da URL
+        setSelectedPatient({
+          id: urlPatientId,
+          name: decodeURIComponent(urlPatientName),
+          cpf: ""
+        });
+        setStep(2); // pula seleção de paciente
+
+        // Enriquecer com CPF completo do Firestore
+        const docRef = doc(db, "patients", urlPatientId);
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          setSelectedPatient({
+            id: snap.id,
+            name: snap.data().name as string,
+            cpf: (snap.data().cpf as string) || ""
+          });
+        }
+      } catch (e) {
+        console.error("Erro ao carregar paciente da URL:", e);
+      }
+    };
+
+    loadUrlPatient();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlPatientId, urlPatientName]);
+
+  // Busca de Pacientes (manual)
   useEffect(() => {
     const search = async () => {
-      if (searchTerm.length > 2) {
+      if (searchTerm.length > 2 && user?.uid) {
         setIsSearching(true);
         const q = query(
           collection(db, "patients"),
-          where("professionalId", "==", user?.uid),
+          where("professionalId", "==", user.uid),
           where("name", ">=", searchTerm),
           where("name", "<=", searchTerm + "\uf8ff"),
           limit(5)
         );
         const snap = await getDocs(q);
-        setPatients(snap.docs.map(doc => ({ id: doc.id, name: doc.data().name, cpf: doc.data().cpf })));
+        setPatients(snap.docs.map(d => ({ id: d.id, name: d.data().name as string, cpf: d.data().cpf as string })));
         setIsSearching(false);
       } else {
         setPatients([]);
@@ -117,8 +170,24 @@ export default function AnamnesisPage() {
     try {
       const professionalId = user?.uid || "unknown";
       const professionalName = user?.email || "Profissional";
+      const today = new Date().toISOString().split("T")[0];
+      // Padrão IEEE 754: valores monetários sempre em centavos (inteiro) para evitar
+      // erros de ponto flutuante. Ex: R$ 350,00 → 35000 centavos.
+      const amountInCents = billValue
+        ? Math.round(Number(billValue.replace(",", ".")) * 100)
+        : 0;
 
-      const consultationData = {
+      // Gerar referências com IDs determinados localmente — necessário para cruzar
+      // o anamneseId no lançamento financeiro antes do commit
+      const consultationRef = doc(collection(db, "consultations"));
+      const evolutionRef = doc(collection(db, "evolutions"));
+      const transactionRef = doc(collection(db, "transactions"));
+      const patientRef = doc(db, "patients", selectedPatient.id);
+
+      const batch = writeBatch(db);
+
+      // ── 1. Registro da consulta (SOAP) ──────────────────────────────
+      batch.set(consultationRef, {
         patientId: selectedPatient.id,
         patientName: selectedPatient.name,
         date: serverTimestamp(),
@@ -129,40 +198,69 @@ export default function AnamnesisPage() {
           objective: { vitalSigns, physicalExam },
         },
         procedures,
-        status: "Finalizado"
-      };
-
-      await addDoc(collection(db, "consultations"), consultationData);
-      
-      // Atualizar a data da última consulta no paciente
-      await updateDoc(doc(db, "patients", selectedPatient.id), {
-        lastConsultation: serverTimestamp()
+        status: "Finalizado",
       });
-      
-      // Registrar evolução
-      await addDoc(collection(db, "evolutions"), {
+
+      // ── 2. Última consulta no cadastro do paciente ───────────────────
+      batch.update(patientRef, { lastConsultation: serverTimestamp() });
+
+      // ── 3. Evolução clínica automática ───────────────────────────────
+      batch.set(evolutionRef, {
         patientId: selectedPatient.id,
         date: serverTimestamp(),
         type: "Atendimento",
         description: `Consulta Clínica Integrativa. Queixa Base: ${complaint || "Não informada"}. Procedimentos: ${procedures.length}.`,
         professionalName,
-        professionalId
+        professionalId,
       });
 
-      await logAction("FINALIZAR_ATENDIMENTO_COMPLETO", selectedPatient.id, { paciente: selectedPatient.name });
-
-      toast({ 
-        title: "Anamnese Finalizada", 
-        description: "Os dados clínicos foram sincronizados no prontuário." 
+      // ── 4. Lançamento financeiro (Contas a Receber) ──────────────────
+      // Status inicial sempre "Pending" — médico confirma o pagamento no módulo financeiro.
+      // anamneseId aponta para consultationRef.id para rastreabilidade bidirecional.
+      batch.set(transactionRef, {
+        pacienteId: selectedPatient.id,
+        anamneseId: consultationRef.id,
+        description: `${categoriaServico} — ${selectedPatient.name}`,
+        patientName: selectedPatient.name,
+        amount: amountInCents,
+        type: "Receita",
+        method: "Pendente",
+        status: "Pending",
+        date: today,
+        tipoCliente,
+        categoriaServico,
+        origem: "anamnese_auto",
+        createdAt: serverTimestamp(),
+        createdBy: professionalName,
+        createdByUid: professionalId,
       });
-      
+
+      // Commit atômico — todos os documentos falham juntos ou todos são gravados
+      await batch.commit();
+
+      await logAction("FINALIZAR_ATENDIMENTO_COMPLETO", selectedPatient.id, {
+        paciente: selectedPatient.name,
+        anamneseId: consultationRef.id,
+        valorFaturadoCentavos: amountInCents,
+        categoriaServico,
+      });
+
+      toast({
+        title: "Anamnese Finalizada",
+        description: "Prontuário e lançamento financeiro gravados com sucesso.",
+      });
+
       if (shouldPrescribe) {
         setIsPrescriptionOpen(true);
       } else {
         router.push(`/patients/detail?id=${selectedPatient.id}`);
       }
     } catch (e) {
-      toast({ title: "Erro ao Salvar", variant: "destructive" });
+      toast({
+        title: "Erro ao Salvar",
+        description: "Nenhum dado foi gravado. Tente novamente.",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -385,6 +483,56 @@ export default function AnamnesisPage() {
                 <div>
                   <h4 className="text-sm font-bold text-amber-900">Finalização de Prontuário</h4>
                   <p className="text-xs text-amber-800 leading-relaxed mt-1">Ao salvar, os dados serão gravados de forma inalterável no histórico do paciente (LGPD). A prescrição médica/farmacêutica passará a ser uma etapa avulsa acessável no seu painel ou através da opção abaixo.</p>
+                </div>
+              </div>
+
+              {/* Dados de Faturamento — gravados atomicamente com o prontuário */}
+              <div className="p-6 bg-white rounded-xl border border-slate-200 space-y-4 max-w-3xl mx-auto">
+                <div className="flex items-center gap-2 border-b pb-3">
+                  <CircleDollarSign className="h-4 w-4 text-primary" />
+                  <h4 className="text-sm font-bold text-primary uppercase tracking-wide">Dados de Faturamento</h4>
+                  <span className="text-[10px] text-muted-foreground ml-1">— status inicial: Pendente</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] uppercase font-bold text-slate-500">Valor da Consulta (R$)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="Ex: 350.00"
+                      value={billValue}
+                      onChange={e => setBillValue(e.target.value)}
+                      className="h-10"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] uppercase font-bold text-slate-500">Tipo de Cliente</Label>
+                    <Select value={tipoCliente} onValueChange={v => setTipoCliente(v as "PF" | "PJ")}>
+                      <SelectTrigger className="h-10">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PF">Pessoa Física (PF)</SelectItem>
+                        <SelectItem value="PJ">Pessoa Jurídica (PJ)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] uppercase font-bold text-slate-500">Categoria do Serviço</Label>
+                    <Select value={categoriaServico} onValueChange={setCategoriaServico}>
+                      <SelectTrigger className="h-10">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Consulta Clínica Integrativa">Consulta Clínica Integrativa</SelectItem>
+                        <SelectItem value="Consulta de Retorno">Consulta de Retorno</SelectItem>
+                        <SelectItem value="Procedimento Ambulatorial">Procedimento Ambulatorial</SelectItem>
+                        <SelectItem value="Aplicação de Protocolo">Aplicação de Protocolo</SelectItem>
+                        <SelectItem value="Teleconsulta">Teleconsulta</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
             </TabsContent>

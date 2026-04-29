@@ -3,77 +3,84 @@
 import { useEffect, useState } from "react";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "@/firebase/config";
+import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Cake, ChevronRight } from "lucide-react";
-import { format, isWithinInterval, addDays, getMonth, getDate } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { format, addDays, getMonth, getDate, isWithinInterval } from "date-fns";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
+interface PatientBirthday {
+  id: string;
+  name: string;
+  birthDate: string | { toDate: () => Date };
+}
+
+function parseBirthDate(birthDate: PatientBirthday["birthDate"]): Date | null {
+  try {
+    if (typeof birthDate === "object" && birthDate.toDate) {
+      return birthDate.toDate();
+    }
+    if (typeof birthDate === "string") {
+      return new Date(birthDate + "T12:00:00");
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export default function BirthdayAlerts() {
-  const [upcomingBirthdays, setUpcomingBirthdays] = useState<any[]>([]);
+  const { user } = useAuth();
+  const [upcomingBirthdays, setUpcomingBirthdays] = useState<PatientBirthday[]>([]);
 
   useEffect(() => {
-    const q = query(collection(db, "patients"));
+    if (!user?.uid) return;
+
+    const q = query(
+      collection(db, "patients"),
+      where("professionalId", "==", user.uid),
+      where("status", "==", "active")
+    );
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const today = new Date();
-      const in7Days = addDays(today, 7);
+      const todayNorm = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const in7Days = addDays(todayNorm, 7);
 
-      const patients = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-      
-      const upcoming = patients.filter((p: any) => {
-        if (!p.birthDate) return false;
-        
-        let birth: Date;
-        if (p.birthDate.toDate) {
-          birth = p.birthDate.toDate();
-        } else if (typeof p.birthDate === "string") {
-          birth = new Date(p.birthDate + "T12:00:00");
-        } else {
-          return false;
-        }
-
-        const currentYearBirthday = new Date(today.getFullYear(), getMonth(birth), getDate(birth));
-        
-        // If birthday passed this year, check next year
-        if (currentYearBirthday.getTime() < new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) {
-           return false;
-        }
-
-        return isWithinInterval(currentYearBirthday, {
-          start: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
-          end: in7Days
+      const upcoming = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as PatientBirthday))
+        .filter((p) => {
+          const birth = parseBirthDate(p.birthDate);
+          if (!birth) return false;
+          const thisYearBirthday = new Date(today.getFullYear(), getMonth(birth), getDate(birth));
+          if (thisYearBirthday < todayNorm) return false;
+          return isWithinInterval(thisYearBirthday, { start: todayNorm, end: in7Days });
+        })
+        .sort((a, b) => {
+          const bdA = parseBirthDate(a.birthDate)!;
+          const bdB = parseBirthDate(b.birthDate)!;
+          const dateA = new Date(today.getFullYear(), getMonth(bdA), getDate(bdA));
+          const dateB = new Date(today.getFullYear(), getMonth(bdB), getDate(bdB));
+          return dateA.getTime() - dateB.getTime();
         });
-      });
-
-      // Sort by closest
-      upcoming.sort((a: any, b: any) => {
-        const bdA = a.birthDate.toDate ? a.birthDate.toDate() : new Date(a.birthDate + "T12:00:00");
-        const bdB = b.birthDate.toDate ? b.birthDate.toDate() : new Date(b.birthDate + "T12:00:00");
-        const aDate = new Date(today.getFullYear(), getMonth(bdA), getDate(bdA));
-        const bDate = new Date(today.getFullYear(), getMonth(bdB), getDate(bdB));
-        return aDate.getTime() - bDate.getTime();
-      });
 
       setUpcomingBirthdays(upcoming);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [user?.uid]);
 
   if (upcomingBirthdays.length === 0) return null;
 
   return (
     <div className="mb-6 space-y-3">
-      {upcomingBirthdays.map(patient => {
-        let bDate;
-        if (patient.birthDate?.toDate) {
-          bDate = patient.birthDate.toDate();
-        } else {
-          bDate = new Date(patient.birthDate + "T12:00:00");
-        }
+      {upcomingBirthdays.map((patient) => {
+        const bDate = parseBirthDate(patient.birthDate);
+        if (!bDate) return null;
 
-        const isToday = getDate(bDate) === getDate(new Date()) && getMonth(bDate) === getMonth(new Date());
+        const today = new Date();
+        const isToday = getDate(bDate) === getDate(today) && getMonth(bDate) === getMonth(today);
 
         return (
           <Alert key={patient.id} className="bg-amber-50 border-amber-200 text-amber-900 flex items-center justify-between p-4 shadow-sm animate-in fade-in slide-in-from-top-2">
@@ -84,10 +91,10 @@ export default function BirthdayAlerts() {
               <div className="flex flex-col">
                 <AlertTitle className="font-bold text-amber-900 mb-0 flex items-center gap-2">
                   {isToday ? "Aniversariante do Dia!" : "Aniversário Próximo"}
-                  {isToday && <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-pulse"></span>}
+                  {isToday && <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-pulse" />}
                 </AlertTitle>
                 <AlertDescription className="text-amber-800 text-sm mt-0.5 font-medium">
-                  {patient.name || "Paciente"} faz aniversário {isToday ? "hoje" : `em ${format(bDate, "dd/MM")}`}.
+                  {patient.name} faz aniversário {isToday ? "hoje" : `em ${format(bDate, "dd/MM")}`}.
                 </AlertDescription>
               </div>
             </div>

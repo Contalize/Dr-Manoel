@@ -3,15 +3,18 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { db, auth } from "@/firebase/config";
-import { 
-  collection, 
-  onSnapshot, 
-  query, 
-  updateDoc, 
-  doc, 
+import {
+  collection,
+  onSnapshot,
+  query,
+  updateDoc,
+  addDoc,
+  doc,
   where,
   limit,
-  orderBy
+  orderBy,
+  getDoc,
+  serverTimestamp
 } from "firebase/firestore";
 import Link from "next/link";
 import BirthdayAlerts from "@/components/BirthdayAlerts";
@@ -182,12 +185,37 @@ export default function PatientsPage() {
   const handleArchivePatient = async (patientId: string, patientName: string) => {
     try {
       const patientRef = doc(db, "patients", patientId);
-      // Alteração de status centralizada
       await updateDoc(patientRef, { status: 'inactive' });
       await logAction("ARQUIVAR_PACIENTE", patientId, { nome: patientName });
       toast({ title: "Registro Arquivado", description: `${patientName} movido para inativos.` });
     } catch (error) {
       toast({ variant: "destructive", title: "Erro ao Arquivar" });
+    }
+  };
+
+  const handleWhatsAppPatient = async (patient: Patient) => {
+    if (!patient.phone) {
+      toast({ title: "Paciente sem telefone cadastrado.", variant: "destructive" });
+      return;
+    }
+    try {
+      const waDoc = await getDoc(doc(db, "clinic_settings", "whatsapp"));
+      if (!waDoc.exists()) {
+        toast({ title: "WhatsApp não configurado. Acesse Configurações → WhatsApp.", variant: "destructive" });
+        return;
+      }
+      const wa = waDoc.data() as { instanceId: string; token: string };
+      const message = `Olá, *${patient.name}*! 👋\n\nEquipe Dr. Manoel da Farmácia entrando em contato. Como podemos te ajudar? 💚`;
+      const response = await fetch("/api/whatsapp/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: patient.phone, message, instanceId: wa.instanceId, token: wa.token })
+      });
+      if (!response.ok) throw new Error();
+      await logAction("WHATSAPP_MENSAGEM_PACIENTE", patient.id, { nome: patient.name });
+      toast({ title: `Mensagem enviada para ${patient.name}` });
+    } catch {
+      toast({ title: "Erro ao enviar WhatsApp", variant: "destructive" });
     }
   };
 
@@ -200,63 +228,44 @@ export default function PatientsPage() {
 
     setIsSubmitting(true);
     try {
-      // SECURITY: Await authStateReady to securely resolve the user and prevent race conditions
       await auth.authStateReady();
       const currentUserId = auth.currentUser?.uid;
 
       if (!currentUserId) {
-        throw new Error("User must be authenticated to create or edit patient records.");
+        throw new Error("Usuário precisa estar autenticado para gerenciar pacientes.");
       }
 
       const finalBioAge = Number(formData.bioAge) || chronoAgeCalculated;
-      
-      // Montamos o payload de dados sem o 'serverTimestamp()'.
-      // O Prisma e o Supabase vão cuidar das datas automaticamente.
+
       const patientData = {
         name: formData.name,
         email: formData.email,
         cpf: formData.cpf,
         phone: formData.phone,
-        birthDate: formData.birthDate, // Certifique-se que o formato está alinhado com o backend
+        birthDate: formData.birthDate,
         gender: formData.gender,
         lgpdConsent: formData.lgpdConsent,
         chronoAge: chronoAgeCalculated,
         bioAge: finalBioAge,
         status: "active",
-        professionalId: user?.uid 
+        professionalId: currentUserId,
       };
 
       if (editingPatientId) {
-        // Fluxo de EDIÇÃO chamando a API NestJS
-        const response = await fetch(`http://localhost:3000/patients/${editingPatientId}`, {
-          method: 'PATCH', // ou 'PUT', dependendo de como o endpoint NestJS foi configurado
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(patientData),
-        });
-
-        if (!response.ok) throw new Error('Falha ao atualizar paciente na API');
-        
+        await updateDoc(doc(db, "patients", editingPatientId), patientData);
         await logAction("EDITAR_PACIENTE", editingPatientId, { nome: formData.name });
       } else {
-        // Fluxo de CRIAÇÃO chamando a API NestJS
-        const response = await fetch('http://localhost:3000/patients', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...patientData,
-            // Convertendo a data local para padrão ISO que o Prisma entende melhor
-            lastConsultation: new Date().toISOString(), 
-          }),
+        const newDoc = await addDoc(collection(db, "patients"), {
+          ...patientData,
+          lastConsultation: new Date().toLocaleDateString('pt-BR'),
+          createdAt: serverTimestamp(),
         });
-
-        if (!response.ok) throw new Error('Falha ao criar paciente na API');
-        
-        await logAction("CRIAR_PACIENTE", "NOVO", { nome: formData.name });
+        await logAction("CRIAR_PACIENTE", newDoc.id, { nome: formData.name });
       }
 
       setIsDialogOpen(false);
       resetForm();
-      toast({ title: "Sucesso", description: "Dados sincronizados com o Supabase com sucesso." });
+      toast({ title: "Sucesso", description: "Paciente salvo com sucesso." });
     } catch (error) {
       console.error("Erro no savePatient:", error);
       toast({ title: "Erro de Conexão", description: "Não foi possível salvar os dados na API.", variant: "destructive" });
@@ -519,7 +528,13 @@ export default function PatientsPage() {
 
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500 hover:bg-blue-50">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-green-600 hover:bg-green-50"
+                              onClick={() => handleWhatsAppPatient(p)}
+                              title="Enviar WhatsApp"
+                            >
                               <MessageCircle className="h-4 w-4" />
                             </Button>
                           </TooltipTrigger>
