@@ -5,11 +5,17 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 
+if (!process.env.JWT_SECRET) {
+  throw new Error(
+    'JWT_SECRET environment variable is missing. It is required for secure authentication.',
+  );
+}
+
 @Module({
   imports: [
     PassportModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'super-secret', // Replace with environment variable
+      secret: process.env.JWT_SECRET,
       signOptions: { expiresIn: '1d' },
     }),
   ],
