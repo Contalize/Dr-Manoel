@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { db, auth } from "@/firebase/config";
+import { useAuth } from "@/contexts/AuthContext";
 import { 
   addDoc, 
   collection,
@@ -47,6 +48,7 @@ interface TerapiaSelecionada extends MedicamentoReferencia {
 }
 
 export default function PlannerPage() {
+  const { user } = useAuth();
   const [protocolName, setProtocolName] = useState("");
   const [anamnesisSummary, setAnamnesisSummary] = useState("");
   const [therapies, setTherapies] = useState<TerapiaSelecionada[]>([]);
@@ -70,10 +72,11 @@ export default function PlannerPage() {
 
   useEffect(() => {
     const search = async () => {
-      if (patientSearch.length > 2) {
+      if (patientSearch.length > 2 && user?.uid) {
         setIsSearchingPatient(true);
         const q = query(
           collection(db, "patients"),
+          where("professionalId", "==", user.uid),
           where("name", ">=", patientSearch),
           where("name", "<=", patientSearch + "\uf8ff"),
           limit(5)
@@ -221,6 +224,9 @@ export default function PlannerPage() {
     setIsSaving(true);
     try {
       // Salvar na coleção protocols
+      const professionalUid = auth.currentUser?.uid || user?.uid || "";
+      const professionalEmail = auth.currentUser?.email || user?.email || "Profissional";
+
       await addDoc(collection(db, "protocols"), {
         patientId: selectedPatient.id,
         patientName: selectedPatient.name,
@@ -235,17 +241,18 @@ export default function PlannerPage() {
         })),
         aiExplanation: explanation || "",
         createdAt: serverTimestamp(),
-        createdBy: auth.currentUser?.email || "Profissional",
+        createdBy: professionalEmail,
+        professionalId: professionalUid,
         status: "Ativo"
       });
 
-      // Registrar na evolução do paciente para aparecer no timeline
       await addDoc(collection(db, "evolutions"), {
         patientId: selectedPatient.id,
         date: serverTimestamp(),
         type: "Protocolo",
         description: `Protocolo Integrativo criado: "${protocolName}" com ${therapies.length} terapia(s).`,
-        professionalName: auth.currentUser?.email || "Profissional"
+        professionalName: professionalEmail,
+        professionalId: professionalUid,
       });
 
       await logAction("SALVAR_PROTOCOLO_AUDITADO", selectedPatient.id, {

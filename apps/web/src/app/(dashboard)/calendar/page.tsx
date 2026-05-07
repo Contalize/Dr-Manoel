@@ -4,6 +4,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { auth, db } from "@/firebase/config";
 import { collection, onSnapshot, query, where, limit, addDoc, serverTimestamp, updateDoc, doc, deleteDoc, getDoc, getDocs } from "firebase/firestore";
+import { useAuth } from "@/contexts/AuthContext";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -65,7 +66,7 @@ export default function CalendarPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   const { toast } = useToast();
-  const user = auth.currentUser;
+  const { user } = useAuth();
 
   // ── Busca de pacientes no dialog ─────────────────────────────
   const [patientSearch, setPatientSearch] = useState("");
@@ -130,10 +131,12 @@ export default function CalendarPage() {
     if (!mounted || !selectedDateStr) return;
 
     setIsLoading(true);
-    
-    // Consulta otimizada por data
+
+    if (!user?.uid) { setIsLoading(false); return; }
+
     const q = query(
-      collection(db, "appointments"), 
+      collection(db, "appointments"),
+      where("professionalId", "==", user.uid),
       where("date", "==", selectedDateStr),
       limit(100)
     );
@@ -150,7 +153,7 @@ export default function CalendarPage() {
     });
 
     return () => unsubscribe();
-  }, [mounted, selectedDateStr]);
+  }, [mounted, selectedDateStr, user?.uid]);
 
   const handleCreateAppointment = async () => {
     if (!selectedPatient || !newAppointment.time || !date) {
@@ -170,7 +173,8 @@ export default function CalendarPage() {
         status: "Scheduled",
         createdAt: serverTimestamp(),
         reminderSent: false,
-        professionalName: auth.currentUser?.email || "Profissional"
+        professionalId: user?.uid || "",
+        professionalName: user?.email || "Profissional"
       });
 
       await logAction("CRIAR_AGENDAMENTO", selectedPatient.id, {
@@ -652,7 +656,15 @@ export default function CalendarPage() {
                         <div className="flex-1 pb-6 space-y-3">
                           {appsInSlot.length === 0 ? (
                             <div className="h-full border-t border-slate-50 pt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Button variant="ghost" size="sm" className="text-[10px] text-slate-400 font-bold uppercase tracking-widest hover:text-primary">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-[10px] text-slate-400 font-bold uppercase tracking-widest hover:text-primary"
+                                onClick={() => {
+                                  setNewAppointment(prev => ({ ...prev, time: slot }))
+                                  setIsDialogOpen(true)
+                                }}
+                              >
                                 <Plus className="h-3 w-3 mr-1" /> Encaixe
                               </Button>
                             </div>

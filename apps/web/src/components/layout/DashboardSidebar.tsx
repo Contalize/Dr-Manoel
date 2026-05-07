@@ -1,15 +1,15 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { 
-  LayoutDashboard, 
-  Users, 
-  Calendar, 
-  Stethoscope, 
-  ClipboardList, 
-  Wallet, 
+import {
+  LayoutDashboard,
+  Users,
+  Calendar,
+  Stethoscope,
+  ClipboardList,
+  Wallet,
   Settings,
   Leaf,
   ShieldCheck,
@@ -19,27 +19,32 @@ import {
   X,
   Loader2,
   PlusCircle,
-  Home
+  Home,
+  Cake,
+  ChevronRight
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { auth, db } from "@/firebase/config"
 import { signOut } from "firebase/auth"
-import { collection, query, where, getDocs, limit, doc, getDoc } from "firebase/firestore"
+import { collection, query, where, getDocs, limit, doc, getDoc, onSnapshot } from "firebase/firestore"
 import { useAuth } from "@/contexts/AuthContext"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { getMonth, getDate, parseISO } from "date-fns"
 
-const navigation = [
-  { name: 'Painel Geral', href: '/', icon: LayoutDashboard },
-  { name: 'Pacientes', href: '/patients', icon: Users },
-  { name: 'Agenda', href: '/calendar', icon: Calendar },
-  { name: 'Anamnese', href: '/anamnesis', icon: Stethoscope },
-  { name: 'Protocolos', href: '/planner', icon: ClipboardList },
-  { name: 'Financeiro', href: '/finance', icon: Wallet },
-  { name: 'Configurações', href: '/settings', icon: Settings },
-]
+interface NavItem {
+  name: string
+  href: string
+  icon: React.ElementType
+  badge?: number
+}
 
-// Itens da bottom navigation mobile (5 itens para o polegar)
+interface NavSection {
+  label: string
+  items: NavItem[]
+}
+
+// Bottom navigation mobile (5 itens para o polegar)
 const bottomNavItems = [
   { href: "/",          icon: LayoutDashboard, label: "Início"     },
   { href: "/patients",  icon: Users,           label: "Pacientes"  },
@@ -52,10 +57,11 @@ export function DashboardSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const [open, setOpen] = useState(false)
-  
+
   const { user } = useAuth()
   const [userName, setUserName] = useState("Carregando...")
-  const [userRole, setUserRole] = useState("Buscando dados...")
+  const [userRole, setUserRole] = useState("")
+  const [birthdayTodayCount, setBirthdayTodayCount] = useState(0)
 
   // ── Busca Global ─────────────────────────────────────────────
   const [globalSearch, setGlobalSearch] = useState("")
@@ -87,7 +93,7 @@ export function DashboardSidebar() {
           collection(db, "patients"),
           where("professionalId", "==", user?.uid),
           where("name", ">=", globalSearch),
-          where("name", "<=", globalSearch + "\uf8ff"),
+          where("name", "<=", globalSearch + ""),
           limit(6)
         )
         const snap = await getDocs(q)
@@ -116,6 +122,33 @@ export function DashboardSidebar() {
   }
   // ─────────────────────────────────────────────────────────────
 
+  // ── Contagem de aniversariantes de hoje ───────────────────────
+  useEffect(() => {
+    if (!user?.uid) return
+    const q = query(
+      collection(db, "patients"),
+      where("professionalId", "==", user.uid),
+      where("status", "==", "active")
+    )
+    const unsub = onSnapshot(q, (snap) => {
+      const today = new Date()
+      const todayM = today.getMonth()
+      const todayD = today.getDate()
+      let count = 0
+      snap.docs.forEach(d => {
+        const birthDate = d.data().birthDate
+        if (!birthDate) return
+        try {
+          const bd = typeof birthDate === "string" ? parseISO(birthDate) : birthDate.toDate?.()
+          if (bd && getMonth(bd) === todayM && getDate(bd) === todayD) count++
+        } catch {}
+      })
+      setBirthdayTodayCount(count)
+    })
+    return () => unsub()
+  }, [user?.uid])
+  // ─────────────────────────────────────────────────────────────
+
   useEffect(() => {
     if (user?.uid) {
       const fetchUser = async () => {
@@ -129,7 +162,7 @@ export function DashboardSidebar() {
             setUserName(user.email?.split("@")[0] || "Usuário")
             setUserRole("Membro")
           }
-        } catch (e) {
+        } catch {
           setUserName(user.email?.split("@")[0] || "Usuário")
         }
       }
@@ -142,26 +175,63 @@ export function DashboardSidebar() {
     router.push("/login")
   }
 
-  const SidebarLink = ({ item }: { item: typeof navigation[0] }) => {
-    const isActive = pathname === item.href
+  const navSections: NavSection[] = useMemo(() => [
+    {
+      label: "Clínica",
+      items: [
+        { name: "Painel Geral",   href: "/",          icon: LayoutDashboard },
+        { name: "Pacientes",      href: "/patients",  icon: Users           },
+        { name: "Agenda",         href: "/calendar",  icon: Calendar        },
+        { name: "Anamnese",       href: "/anamnesis", icon: Stethoscope     },
+      ],
+    },
+    {
+      label: "Gestão",
+      items: [
+        { name: "Protocolos",     href: "/planner",   icon: ClipboardList   },
+        { name: "Financeiro",     href: "/finance",   icon: Wallet          },
+        {
+          name: "Aniversariantes",
+          href: "/birthday",
+          icon: Cake,
+          badge: birthdayTodayCount > 0 ? birthdayTodayCount : undefined,
+        },
+      ],
+    },
+    {
+      label: "Sistema",
+      items: [
+        { name: "Configurações",  href: "/settings",  icon: Settings        },
+      ],
+    },
+  ], [birthdayTodayCount])
+
+  const SidebarLink = ({ item }: { item: NavItem }) => {
+    const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))
     return (
       <Link
-        key={item.name}
         href={item.href}
         prefetch={true}
         onClick={() => setOpen(false)}
         className={cn(
-          "group flex items-center px-3 py-3 text-sm font-medium rounded-md transition-all duration-200",
-          isActive 
-            ? "bg-white/15 text-white border-l-4 border-accent" 
-            : "text-white/70 hover:bg-white/10 hover:text-white"
+          "group flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-150",
+          isActive
+            ? "bg-white/20 text-white shadow-sm"
+            : "text-white/65 hover:bg-white/10 hover:text-white"
         )}
       >
         <item.icon className={cn(
-          "mr-3 h-5 w-5 shrink-0",
-          isActive ? "text-white" : "text-white/60 group-hover:text-white"
-        )} />
-        {item.name}
+          "h-4.5 w-4.5 shrink-0 transition-colors",
+          isActive ? "text-white" : "text-white/50 group-hover:text-white/80"
+        )} style={{ height: "1.125rem", width: "1.125rem" }} />
+        <span className="flex-1 truncate">{item.name}</span>
+        {item.badge ? (
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 text-[10px] font-bold text-white px-1 shadow-sm">
+            {item.badge}
+          </span>
+        ) : isActive ? (
+          <span className="h-1.5 w-1.5 rounded-full bg-white/60" />
+        ) : null}
       </Link>
     )
   }
@@ -215,17 +285,20 @@ export function DashboardSidebar() {
   // ─────────────────────────────────────────────────────────────
 
   const SidebarContent = () => (
-    <div className="flex flex-col h-full bg-primary text-primary-foreground shadow-xl border-r border-primary/10">
+    <div className="flex flex-col h-full bg-primary text-primary-foreground shadow-xl">
       {/* Logo */}
-      <div className="p-6 flex items-center gap-3">
-        <div className="bg-white rounded-lg p-2 shrink-0">
-          <Leaf className="h-6 w-6 text-primary" />
+      <div className="px-5 py-5 flex items-center gap-3 border-b border-white/10">
+        <div className="bg-white/15 rounded-xl p-2 shrink-0 backdrop-blur-sm">
+          <Leaf className="h-5 w-5 text-white" />
         </div>
-        <h1 className="text-xl font-headline font-bold tracking-tight text-white truncate">PharmaZen</h1>
+        <div>
+          <h1 className="text-base font-headline font-bold tracking-tight text-white leading-none">PharmaZen</h1>
+          <p className="text-[10px] text-white/40 mt-0.5 font-medium uppercase tracking-widest">Gestão Clínica</p>
+        </div>
       </div>
 
       {/* Busca Global */}
-      <div className="px-4 pb-3 relative" ref={searchRef}>
+      <div className="px-4 py-3 relative" ref={searchRef}>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/40" />
           <input
@@ -233,7 +306,7 @@ export function DashboardSidebar() {
             placeholder="Buscar paciente..."
             value={globalSearch}
             onChange={(e) => setGlobalSearch(e.target.value)}
-            className="w-full h-9 bg-white/10 border border-white/15 rounded-lg pl-8 pr-8 text-xs text-white placeholder:text-white/40 focus:outline-none focus:border-white/30 focus:bg-white/15 transition-all"
+            className="w-full h-9 bg-white/10 border border-white/15 rounded-xl pl-8 pr-8 text-xs text-white placeholder:text-white/40 focus:outline-none focus:border-white/30 focus:bg-white/15 transition-all"
           />
           {(globalSearch || isSearching) && (
             <button
@@ -268,35 +341,54 @@ export function DashboardSidebar() {
           </div>
         )}
       </div>
-      
-      <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
-        {navigation.map((item) => (
-          <SidebarLink key={item.name} item={item} />
+
+      {/* Navegação por seções */}
+      <nav className="flex-1 px-3 pb-3 space-y-4 overflow-y-auto">
+        {navSections.map((section) => (
+          <div key={section.label}>
+            <p className="px-3 mb-1.5 text-[9px] font-bold uppercase tracking-widest text-white/30">
+              {section.label}
+            </p>
+            <div className="space-y-0.5">
+              {section.items.map((item) => (
+                <SidebarLink key={item.href} item={item} />
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
 
-      <div className="p-4 border-t border-white/10 space-y-2">
+      {/* Rodapé */}
+      <div className="px-3 pb-4 pt-2 border-t border-white/10 space-y-0.5">
         <Link
           href="/privacy"
           prefetch={true}
           onClick={() => setOpen(false)}
-          className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-all"
+          className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl text-white/50 hover:bg-white/10 hover:text-white/80 transition-all"
         >
-          <ShieldCheck className="mr-3 h-5 w-5 text-white/60 shrink-0" />
-          <span className="truncate">Privacidade</span>
+          <ShieldCheck className="h-4 w-4 shrink-0" style={{ height: "1.125rem", width: "1.125rem" }} />
+          <span className="truncate text-sm">Privacidade</span>
         </Link>
-        
+
         <button
           onClick={handleLogout}
-          className="w-full flex items-center px-3 py-2 text-sm font-medium rounded-md text-red-200 hover:bg-red-900/20 hover:text-red-100 transition-all"
+          className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl text-red-300/70 hover:bg-red-900/20 hover:text-red-200 transition-all"
         >
-          <LogOut className="mr-3 h-5 w-5 text-red-300 shrink-0" />
+          <LogOut className="h-4 w-4 shrink-0" style={{ height: "1.125rem", width: "1.125rem" }} />
           <span>Sair</span>
         </button>
 
-        <div className="mt-4 px-3 py-4 bg-black/20 rounded-lg border border-white/5 hidden md:block">
-          <p className="text-[10px] text-white/40 uppercase tracking-widest font-bold mb-1">{userName}</p>
-          <p className="text-[11px] text-white/50 truncate">{userRole}</p>
+        {/* Perfil do usuário */}
+        <div className="mt-3 mx-1 px-3 py-3 bg-white/8 rounded-xl border border-white/8 hidden md:flex items-center gap-3">
+          <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+            <span className="text-xs font-bold text-white">
+              {userName.substring(0, 2).toUpperCase()}
+            </span>
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-white/80 truncate">{userName}</p>
+            <p className="text-[10px] text-white/40 truncate">{userRole}</p>
+          </div>
         </div>
       </div>
     </div>
@@ -304,12 +396,17 @@ export function DashboardSidebar() {
 
   return (
     <>
-      {/* Mobile: Hambúrguer no canto superior direito (acessa Settings e Logout) */}
+      {/* Mobile: Hambúrguer no canto superior direito */}
       <div className="md:hidden fixed top-4 right-4 z-50">
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
-            <Button variant="outline" size="icon" className="bg-white border-primary/20 text-primary shadow-md">
+            <Button variant="outline" size="icon" className="bg-white border-primary/20 text-primary shadow-md relative">
               <Menu className="h-6 w-6" />
+              {birthdayTodayCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-amber-400 flex items-center justify-center text-[9px] font-bold text-white">
+                  {birthdayTodayCount}
+                </span>
+              )}
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-64 border-none">

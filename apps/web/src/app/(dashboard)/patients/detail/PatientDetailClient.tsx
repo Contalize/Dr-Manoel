@@ -209,41 +209,37 @@ export function PatientDetailClient() {
       }
     };
 
-    const qEvol = query(collection(db, "evolutions"), where("patientId", "==", id));
+    const uid = user?.uid || "";
+
+    const qEvol = query(collection(db, "evolutions"), where("patientId", "==", id), where("professionalId", "==", uid));
     const unsubEvol = onSnapshot(qEvol, (snap) => {
       const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Evolution));
       data.sort((a, b) => (b.date?.toMillis?.() || 0) - (a.date?.toMillis?.() || 0));
       setEvolutions(data);
     });
 
-    const qConsult = query(collection(db, "consultations"), where("patientId", "==", id));
+    const qConsult = query(collection(db, "consultations"), where("patientId", "==", id), where("professionalId", "==", uid));
     const unsubConsult = onSnapshot(qConsult, (snap) => {
       const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Consultation));
       data.sort((a, b) => (b.date?.toMillis?.() || 0) - (a.date?.toMillis?.() || 0));
       setConsultations(data);
     });
 
-    const qPresc = query(collection(db, "prescriptions"), where("patientId", "==", id));
+    const qPresc = query(collection(db, "prescriptions"), where("patientId", "==", id), where("professionalId", "==", uid));
     const unsubPresc = onSnapshot(qPresc, (snap) => {
       const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Prescription));
       data.sort((a, b) => (b.date?.toMillis?.() || 0) - (a.date?.toMillis?.() || 0));
       setPrescriptions(data);
     });
 
-    const qExams = query(
-      collection(db, "exams"),
-      where("patientId", "==", id)
-    );
+    const qExams = query(collection(db, "exams"), where("patientId", "==", id), where("professionalId", "==", uid));
     const unsubExams = onSnapshot(qExams, (snap) => {
       const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Exam));
       data.sort((a, b) => (b.uploadedAt?.toMillis?.() || 0) - (a.uploadedAt?.toMillis?.() || 0));
       setExams(data);
     });
 
-    const qProtocols = query(
-      collection(db, "protocols"),
-      where("patientId", "==", id)
-    );
+    const qProtocols = query(collection(db, "protocols"), where("patientId", "==", id), where("professionalId", "==", uid));
     const unsubProtocols = onSnapshot(qProtocols, (snap) => {
       const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Protocol));
       data.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
@@ -337,7 +333,8 @@ export function PatientDetailClient() {
               storagePath,
               description: examDescription || file.name,
               uploadedAt: serverTimestamp(),
-              uploadedBy: auth.currentUser?.email || "Profissional"
+              uploadedBy: auth.currentUser?.email || "Profissional",
+              professionalId: auth.currentUser?.uid || user?.uid || "",
             });
 
             await logAction("UPLOAD_EXAME_PACIENTE", id as string, {
@@ -413,7 +410,7 @@ export function PatientDetailClient() {
           >
             <Pill className="h-4 w-4 mr-2" /> Receita Rápida
           </Button>
-          <Link href={`/anamnesis?patientId=${patient.id}`}>
+          <Link href={`/anamnesis?patientId=${patient.id}&patientName=${encodeURIComponent(patient.name)}`}>
             <Button className="bg-primary text-white"><Stethoscope className="h-4 w-4 mr-2" /> Atender</Button>
           </Link>
         </div>
@@ -471,28 +468,72 @@ export function PatientDetailClient() {
                   <p className="text-[10px] font-bold text-slate-400 uppercase">Prof: {consult.professionalName}</p>
                 </CardHeader>
                 <CardContent className="pt-4 space-y-4">
-                  {consult.soap?.subjective?.complaint && (
-                    <div>
-                      <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">Queixa Principal</p>
-                      <p className="text-sm text-slate-700">{consult.soap.subjective.complaint}</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {consult.soap?.subjective?.complaint && (
+                      <div>
+                        <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">Queixa Principal</p>
+                        <p className="text-sm text-slate-700">{consult.soap.subjective.complaint}</p>
+                        {consult.soap.subjective.duration && (
+                          <p className="text-xs text-muted-foreground mt-0.5">Duração: {consult.soap.subjective.duration}</p>
+                        )}
+                      </div>
+                    )}
+                    {consult.soap?.assessment?.hypotheses && (
+                      <div>
+                        <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">
+                          Hipótese Diagnóstica {consult.soap.assessment.cid10 && <span className="text-muted-foreground normal-case">({consult.soap.assessment.cid10})</span>}
+                        </p>
+                        <p className="text-sm text-slate-700">{consult.soap.assessment.hypotheses}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Sinais vitais resumidos */}
+                  {consult.soap?.objective?.vitalSigns && (() => {
+                    const v = consult.soap.objective.vitalSigns;
+                    const items = [
+                      v.bp && `PA: ${v.bp}`,
+                      v.hr && `FC: ${v.hr}bpm`,
+                      v.weight && `Peso: ${v.weight}kg`,
+                      v.bmi && `IMC: ${v.bmi}`,
+                      v.spo2 && `SpO₂: ${v.spo2}%`,
+                    ].filter(Boolean);
+                    if (!items.length) return null;
+                    return (
+                      <div>
+                        <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">Sinais Vitais</p>
+                        <div className="flex flex-wrap gap-2">
+                          {items.map((item, i) => (
+                            <span key={i} className="text-[10px] bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded-md">{item}</span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Alergias registradas */}
+                  {(consult.soap?.subjective?.allergies?.length ?? 0) > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest w-full mb-1">⚠ Alergias</p>
+                      {consult.soap.subjective.allergies.map((a: string, i: number) => (
+                        <span key={i} className="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-md">{a}</span>
+                      ))}
                     </div>
                   )}
+
+                  {consult.soap?.plan?.conduct && (
+                    <div>
+                      <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">Conduta</p>
+                      <p className="text-xs text-slate-600 line-clamp-2">{consult.soap.plan.conduct}</p>
+                    </div>
+                  )}
+
                   {consult.procedures?.length > 0 && (
                     <div>
                       <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">Procedimentos ({consult.procedures.length})</p>
                       <div className="space-y-1">
                         {consult.procedures.map((proc: any, i: number) => (
                           <p key={i} className="text-xs text-slate-600">• <strong>{proc.type}:</strong> {proc.description}</p>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {consult.prescriptions?.length > 0 && (
-                    <div>
-                      <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">Prescrições ({consult.prescriptions.length})</p>
-                      <div className="space-y-1">
-                        {consult.prescriptions.map((rx: any, i: number) => (
-                          <p key={i} className="text-xs text-slate-600">• <strong>{rx.med}</strong> {rx.dose} — {rx.freq} por {rx.duration}</p>
                         ))}
                       </div>
                     </div>

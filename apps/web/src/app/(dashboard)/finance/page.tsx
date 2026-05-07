@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react";
-import { db, auth } from "@/firebase/config";
-import { collection, onSnapshot, query, where, orderBy, limit, addDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "@/firebase/config";
+import { collection, onSnapshot, query, where, orderBy, doc, updateDoc, addDoc, serverTimestamp } from "firebase/firestore";
+import { useAuth } from "@/contexts/AuthContext";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -61,7 +62,7 @@ function formatCurrency(centavos: number): string {
 }
 
 export default function FinancePage() {
-  const currentUser = auth.currentUser;
+  const { user } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [stats, setStats] = useState({
     monthlyRevenue: 0,
@@ -73,6 +74,7 @@ export default function FinancePage() {
 
   const { toast } = useToast();
   const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [txForm, setTxForm] = useState({
     description: "",
@@ -110,8 +112,8 @@ export default function FinancePage() {
         status: txForm.status,
         date: today,
         createdAt: serverTimestamp(),
-        createdBy: auth.currentUser?.email || "Profissional",
-        createdByUid: auth.currentUser?.uid || ""
+        createdBy: user?.email || "Profissional",
+        createdByUid: user?.uid || ""
       });
 
       await logAction("LANCAR_TRANSACAO_FINANCEIRA", "financial", {
@@ -134,11 +136,24 @@ export default function FinancePage() {
     }
   };
 
+  const handleConfirmPayment = async (txId: string) => {
+    setConfirmingId(txId);
+    try {
+      await updateDoc(doc(db, "transactions", txId), { status: "Paid", method: "Confirmado" });
+      await logAction("CONFIRMAR_PAGAMENTO", txId, {});
+      toast({ title: "Pagamento confirmado" });
+    } catch {
+      toast({ title: "Erro ao confirmar pagamento", variant: "destructive" });
+    } finally {
+      setConfirmingId(null);
+    }
+  };
+
   useEffect(() => {
-    if (!currentUser?.uid) return;
+    if (!user?.uid) return;
     const q = query(
       collection(db, "transactions"),
-      where("createdByUid", "==", currentUser.uid),
+      where("createdByUid", "==", user.uid),
       orderBy("date", "desc")
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -180,7 +195,7 @@ export default function FinancePage() {
       setCashFlow(flow);
     });
     return () => unsubscribe();
-  }, []);
+  }, [user?.uid]);
 
   return (
     <div className="space-y-8">
@@ -370,7 +385,7 @@ export default function FinancePage() {
                   <TableHead className="font-bold">Paciente</TableHead>
                   <TableHead className="font-bold">Valor</TableHead>
                   <TableHead className="font-bold">Status</TableHead>
-                  <TableHead className="text-right font-bold">Método</TableHead>
+                  <TableHead className="text-right font-bold">Ação</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -398,7 +413,21 @@ export default function FinancePage() {
                           {tx.status === 'Paid' ? 'Pago' : 'Pendente'}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right text-xs font-semibold text-muted-foreground uppercase">{tx.method}</TableCell>
+                      <TableCell className="text-right">
+                        {tx.status === 'Pending' ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-[10px] font-bold border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                            onClick={() => handleConfirmPayment(tx.id)}
+                            disabled={confirmingId === tx.id}
+                          >
+                            {confirmingId === tx.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "✓ Confirmar"}
+                          </Button>
+                        ) : (
+                          <span className="text-xs font-semibold text-muted-foreground uppercase">{tx.method}</span>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
