@@ -5,8 +5,8 @@ import { ClinicProvider } from '@/contexts/ClinicContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 
 export const metadata: Metadata = {
-  title: 'PharmaZen | Clínica Integrativa Manoel da Farmácia',
-  description: 'Gestão inteligente e humanizada para clínicas farmacêuticas integrativas.',
+  title: 'Dr. Manoel - Prontuário Integrativo',
+  description: 'Plataforma avançada de gestão clínica e prescrição inteligente.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,

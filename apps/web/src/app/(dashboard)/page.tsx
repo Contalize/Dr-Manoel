@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { NewPrescriptionDialog } from "@/components/prescriptions/NewPrescriptionDialog"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
+import BirthdayAlerts from "@/components/BirthdayAlerts"
 
 interface Appointment {
   id: string;
@@ -131,6 +132,8 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      <BirthdayAlerts />
 
       {/* Card: Próximo Atendimento */}
       {nextAppointment && (

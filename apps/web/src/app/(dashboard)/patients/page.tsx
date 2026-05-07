@@ -478,9 +478,16 @@ export default function PatientsPage() {
                     </div>
                   </TableCell>
                   <TableCell className="text-[11px] font-bold text-slate-600">
-                    {p.lastConsultation === todayStr ? (
-                      <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-none text-[9px] h-4 font-bold">HOJE</Badge>
-                    ) : p.lastConsultation}
+                    {(() => {
+                      let strVal = p.lastConsultation;
+                      if (p.lastConsultation && typeof p.lastConsultation === 'object' && 'seconds' in p.lastConsultation) {
+                        strVal = new Date((p.lastConsultation as any).seconds * 1000).toLocaleDateString('pt-BR');
+                      }
+                      if (strVal === todayStr) {
+                        return <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-none text-[9px] h-4 font-bold">HOJE</Badge>;
+                      }
+                      return strVal;
+                    })()}
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">

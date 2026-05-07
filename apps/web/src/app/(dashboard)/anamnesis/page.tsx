@@ -167,27 +167,35 @@ export default function AnamnesisPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlPatientId, urlPatientName]);
 
-  // Busca de pacientes com debounce
+  // Busca de pacientes com debounce (client-side filter para case-insensitivity)
   useEffect(() => {
     const search = async () => {
       if (searchTerm.length > 2 && user?.uid) {
         setIsSearching(true);
-        const q = query(
-          collection(db, "patients"),
-          where("professionalId", "==", user.uid),
-          where("name", ">=", searchTerm),
-          where("name", "<=", searchTerm + ""),
-          limit(6)
-        );
-        const snap = await getDocs(q);
-        setPatients(snap.docs.map(d => ({
-          id: d.id,
-          name: d.data().name as string,
-          cpf: d.data().cpf as string,
-          birthDate: d.data().birthDate as string,
-          gender: d.data().gender as string,
-        })));
-        setIsSearching(false);
+        try {
+          const q = query(
+            collection(db, "patients"),
+            where("professionalId", "==", user.uid),
+            where("status", "==", "active"),
+            limit(100)
+          );
+          const snap = await getDocs(q);
+          const allPatients = snap.docs.map(d => ({
+            id: d.id,
+            name: d.data().name as string,
+            cpf: d.data().cpf as string,
+            birthDate: d.data().birthDate as string,
+            gender: d.data().gender as string,
+          }));
+          
+          const term = searchTerm.toLowerCase();
+          const filtered = allPatients.filter(p => p.name?.toLowerCase().includes(term) || p.cpf?.includes(term)).slice(0, 6);
+          setPatients(filtered);
+        } catch (error) {
+          console.error("Erro ao buscar pacientes", error);
+        } finally {
+          setIsSearching(false);
+        }
       } else {
         setPatients([]);
       }

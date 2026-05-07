@@ -365,14 +365,14 @@ export function NewPrescriptionDialog({ initialPatientId, initialPatientName, tr
                                               {apiResults.length === 0 && apiSearchTerm && (
                                                 <div className="p-4 text-center">
                                                   <p className="text-xs text-muted-foreground mb-3">Ausente na API.</p>
-                                                  <Button type="button" size="sm" className="w-full text-[10px] bg-amber-100 text-amber-800 font-bold hover:bg-amber-200" onClick={() => { form.setValue(`medications.${index}.nome`, apiSearchTerm); setOpenMedicationIndex(null); }}>
+                                                  <Button type="button" size="sm" className="w-full text-[10px] bg-amber-100 text-amber-800 font-bold hover:bg-amber-200" onMouseDown={(e) => { e.preventDefault(); form.setValue(`medications.${index}.nome`, apiSearchTerm); setOpenMedicationIndex(null); }}>
                                                     USAR TEXTO: "{apiSearchTerm}"
                                                   </Button>
                                                 </div>
                                               )}
                                               <CommandGroup>
                                                 {apiResults.map((med) => (
-                                                  <CommandItem key={med.id} value={med.nome_comercial} onSelect={() => { form.setValue(`medications.${index}.nome`, `${med.nome_comercial} (${med.principio_ativo})`); setOpenMedicationIndex(null); }}>
+                                                  <CommandItem key={med.id} value={med.nome_comercial} onSelect={() => { form.setValue(`medications.${index}.nome`, `${med.nome_comercial} (${med.principio_ativo})`); setOpenMedicationIndex(null); }} onMouseDown={(e) => { e.preventDefault(); form.setValue(`medications.${index}.nome`, `${med.nome_comercial} (${med.principio_ativo})`); setOpenMedicationIndex(null); }}>
                                                     <span className="font-bold text-primary mr-2 truncate">{med.nome_comercial}</span> 
                                                     <span className="text-[10px] italic text-muted-foreground whitespace-nowrap">{med.concentracao}</span>
                                                   </CommandItem>
