@@ -42,12 +42,12 @@ export function PrescriptionPrintView({
     if (!isOpen) return;
 
     const style = document.createElement("style");
-    style.id = "pharmazen-print-styles";
+    style.id = "dr-manoel-print-styles";
     style.innerHTML = `
       @media print {
         body > * { display: none !important; }
-        #pharmazen-print-root { display: block !important; }
-        #pharmazen-print-root {
+        #dr-manoel-print-root { display: block !important; }
+        #dr-manoel-print-root {
           font-family: 'Times New Roman', serif;
           color: #000;
           background: #fff;
@@ -56,7 +56,7 @@ export function PrescriptionPrintView({
           min-height: 297mm;
         }
       }
-      #pharmazen-print-root {
+      #dr-manoel-print-root {
         display: none;
         position: fixed;
         top: 0; left: 0;
@@ -66,14 +66,14 @@ export function PrescriptionPrintView({
         background: white;
         overflow: auto;
       }
-      #pharmazen-print-root.visible {
+      #dr-manoel-print-root.visible {
         display: block;
       }
     `;
     document.head.appendChild(style);
 
     return () => {
-      const s = document.getElementById("pharmazen-print-styles");
+      const s = document.getElementById("dr-manoel-print-styles");
       if (s) s.remove();
     };
   }, [isOpen]);
@@ -91,7 +91,7 @@ export function PrescriptionPrintView({
   const dateFormatted = format(prescriptionDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
 
   return (
-    <div id="pharmazen-print-root" className="visible">
+    <div id="dr-manoel-print-root" className="visible">
       {/* Botões de controle — ocultos na impressão */}
       <div
         style={{
@@ -241,7 +241,7 @@ export function PrescriptionPrintView({
         {/* Rodapé */}
         <div style={{ marginTop: "40px", borderTop: "1px solid #eee", paddingTop: "12px", textAlign: "center" }}>
           <p style={{ fontSize: "10px", color: "#999", margin: 0 }}>
-            Documento gerado pelo PharmaZen · Conforme RDC/ANVISA · LGPD Compliant · {dateFormatted}
+            Documento gerado pelo Dr. Manoel · Conforme RDC/ANVISA · LGPD Compliant · {dateFormatted}
           </p>
         </div>
       </div>

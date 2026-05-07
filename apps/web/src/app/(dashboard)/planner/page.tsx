@@ -515,7 +515,7 @@ export default function PlannerPage() {
             <CardHeader className="bg-accent text-white">
               <CardTitle className="flex items-center gap-2 font-headline text-lg">
                 <Sparkles className="h-5 w-5" />
-                Racional IA PharmaZen
+                Racional IA Dr. Manoel
               </CardTitle>
               <CardDescription className="text-white/80">Validação técnica baseada na anamnese.</CardDescription>
             </CardHeader>

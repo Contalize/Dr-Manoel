@@ -51,7 +51,7 @@ export default function LoginPage() {
           <div className="bg-primary p-3 rounded-2xl mb-4 shadow-lg">
             <Leaf className="h-8 w-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-primary font-headline">PharmaZen</h1>
+          <h1 className="text-3xl font-bold text-primary font-headline">Dr. Manoel</h1>
           <p className="text-secondary font-medium mt-2">Plataforma Farmacêutica Integrativa</p>
         </div>
 

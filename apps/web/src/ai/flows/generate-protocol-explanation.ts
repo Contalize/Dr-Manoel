@@ -1,6 +1,6 @@
 /**
  * @fileOverview This file is currently a STUB.
- * PharmaZen is using Static Export (output: 'export'), which does not support Server Actions.
+ * Dr. Manoel is using Static Export (output: 'export'), which does not support Server Actions.
  * To use Genkit AI securely, these flows should be deployed as Firebase Cloud Functions
  * and called via HTTPS.
  */

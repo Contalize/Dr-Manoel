@@ -209,7 +209,7 @@ export default function SettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           phone: testPhone,
-          message: "✅ PharmaZen: conexão WhatsApp funcionando! Este é o seu lembrete automático de consultas.",
+          message: "✅ Dr. Manoel: conexão WhatsApp funcionando! Este é o seu lembrete automático de consultas.",
           instanceId: waSettings.instanceId,
           token: waSettings.token
         })
@@ -264,7 +264,7 @@ export default function SettingsPage() {
                       id="clinicName" 
                       value={clinicData.name} 
                       onChange={(e) => setClinicData({...clinicData, name: e.target.value})}
-                      placeholder="Ex: PharmaZen Clínica Integrativa"
+                      placeholder="Ex: Dr. Manoel Clínica Integrativa"
                       className="h-12 bg-secondary/5 border-slate-200"
                     />
                   </div>
