@@ -157,7 +157,7 @@ export default function PatientsPage() {
     });
 
     return () => unsubscribe();
-  }, [mounted]);
+  }, [mounted, user?.uid]);
 
   const handleRevealSensitive = async () => {
     const newState = !showSensitive;

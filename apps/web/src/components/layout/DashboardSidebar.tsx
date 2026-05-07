@@ -292,7 +292,7 @@ export function DashboardSidebar() {
           <Leaf className="h-5 w-5 text-white" />
         </div>
         <div>
-          <h1 className="text-base font-headline font-bold tracking-tight text-white leading-none">PharmaZen</h1>
+          <h1 className="text-base font-headline font-bold tracking-tight text-white leading-none">Dr. Manoel</h1>
           <p className="text-[10px] text-white/40 mt-0.5 font-medium uppercase tracking-widest">Gestão Clínica</p>
         </div>
       </div>

@@ -1,0 +1,18 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Exames de pacientes — somente o profissional autenticado pode ler/escrever
+    match /patients/{patientId}/exams/{fileName} {
+      allow read, write: if request.auth != null;
+    }
+    // Logos e assets da clínica
+    match /clinic/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    // Bloquear todo o resto
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

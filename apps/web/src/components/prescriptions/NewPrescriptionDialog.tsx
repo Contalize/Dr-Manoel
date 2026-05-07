@@ -79,7 +79,7 @@ const medicationSchema = z.object({
 
 const prescriptionFormSchema = z.object({
   patientId: z.string({ required_error: "Selecione um paciente." }),
-  professionalId: z.string({ required_error: "Selecione o prescritor." }),
+  professionalId: z.string().optional().default(""),
   notes: z.string().optional(),
   medications: z.array(medicationSchema).min(1, "Adicione pelo menos um medicamento"),
 })
@@ -196,13 +196,14 @@ export function NewPrescriptionDialog({ initialPatientId, initialPatientName, tr
     try {
       const selectedPatient = patients.find(p => p.id === values.patientId)
       const patientName = initialPatientName || selectedPatient?.name || "Desconhecido"
-      const selectedProf = professionals.find(p => p.id === values.professionalId)
+      const professionalId = values.professionalId || user?.uid || ""
+      const selectedProf = professionals.find(p => p.id === professionalId)
 
       await addDoc(collection(db, "prescriptions"), {
         patientId: values.patientId,
         patientName,
-        professionalId: values.professionalId,
-        professionalName: selectedProf?.name || "Desconhecido",
+        professionalId,
+        professionalName: selectedProf?.name || user?.email || "Dr. Manoel",
         date: serverTimestamp(),
         medications: values.medications,
         notes: values.notes || "",
@@ -295,29 +296,12 @@ export function NewPrescriptionDialog({ initialPatientId, initialPatientName, tr
                     )}
                   />
                 </div>
-                <div className="bg-accent/5 p-4 rounded-xl border border-accent/10">
-                  <FormField
-                    control={form.control}
-                    name="professionalId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-[10px] uppercase font-bold text-accent mb-2">Prescritor Responsável</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger className="h-11 bg-white border-accent/20">
-                              <SelectValue placeholder="Selecione..." />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {professionals.map((prof) => (
-                              <SelectItem key={prof.id} value={prof.id} className="text-xs">{prof.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                <div className="bg-accent/5 p-4 rounded-xl border border-accent/10 flex flex-col justify-center">
+                  <p className="text-[10px] uppercase font-bold text-accent mb-2">Prescritor Responsável</p>
+                  <div className="p-3 bg-white rounded-lg border border-accent/20 flex items-center justify-between h-11">
+                    <span className="text-sm font-bold text-slate-900">{user?.email?.split("@")[0] || "Dr. Manoel"}</span>
+                    <UserCheck className="h-4 w-4 text-accent" />
+                  </div>
                 </div>
               </div>
 
