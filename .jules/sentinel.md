@@ -7,3 +7,8 @@
 **Vulnerability:** Found `Math.random().toString(36).substr(2, 9)` being used to generate unique `id_instancia` identifiers in `src/app/planner/page.tsx`. `Math.random()` is not cryptographically secure and relies on a PRNG (Pseudo-Random Number Generator) with predictable outputs, which could lead to ID collisions or predictability, albeit the risk is moderate in frontend state, but violates security best practices.
 **Learning:** It existed likely because it is a common quick pattern for generating temporary random strings in JavaScript when a full UUID library wasn't considered necessary or to save bundle size, without considering the cryptographic weakness of `Math.random()`.
 **Prevention:** Always use `crypto.randomUUID()` to generate unique identifiers in the frontend, which provides a cryptographically secure, collision-free UUIDv4, and is natively supported in modern browsers. `Math.random()` should be restricted to purely visual/non-security randomization.
+
+## 2025-05-15 - [Hardcoded Secret in JWT Strategy]
+**Vulnerability:** A hardcoded fallback secret (`'super-secret'`) was present in both `auth.module.ts` and `jwt.strategy.ts` for signing and verifying JWTs when `process.env.JWT_SECRET` was undefined.
+**Learning:** Hardcoded secrets present a critical risk. Using fallback secrets in production code means an application could unknowingly start with a known, insecure secret if an environment configuration error occurs.
+**Prevention:** Never use hardcoded fallback secrets for cryptographic functions or JWT signing. Always fail-fast by explicitly checking and throwing an initialization error if required security environment variables are missing.
