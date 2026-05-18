@@ -13,6 +13,9 @@ const passport_1 = require("@nestjs/passport");
 const auth_service_1 = require("./auth.service");
 const auth_controller_1 = require("./auth.controller");
 const jwt_strategy_1 = require("./jwt.strategy");
+if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET environment variable is missing.');
+}
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;
@@ -21,7 +24,7 @@ exports.AuthModule = AuthModule = __decorate([
         imports: [
             passport_1.PassportModule,
             jwt_1.JwtModule.register({
-                secret: process.env.JWT_SECRET || 'super-secret',
+                secret: process.env.JWT_SECRET,
                 signOptions: { expiresIn: '1d' },
             }),
         ],
