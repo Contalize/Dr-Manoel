@@ -72,8 +72,8 @@ let AuthService = class AuthService {
                 id: user.id,
                 email: user.email,
                 role: user.role,
-                tenantId: user.tenantId
-            }
+                tenantId: user.tenantId,
+            },
         };
     }
     async register(registerDto) {

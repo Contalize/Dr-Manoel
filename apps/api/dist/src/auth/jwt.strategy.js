@@ -13,16 +13,23 @@ exports.JwtStrategy = void 0;
 const passport_jwt_1 = require("passport-jwt");
 const passport_1 = require("@nestjs/passport");
 const common_1 = require("@nestjs/common");
+if (!process.env.JWT_SECRET) {
+    throw new Error('CRITICAL: JWT_SECRET environment variable is not set.');
+}
 let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(passport_jwt_1.Strategy) {
     constructor() {
         super({
             jwtFromRequest: passport_jwt_1.ExtractJwt.fromAuthHeaderAsBearerToken(),
             ignoreExpiration: false,
-            secretOrKey: process.env.JWT_SECRET || 'super-secret',
+            secretOrKey: process.env.JWT_SECRET,
         });
     }
     async validate(payload) {
-        return { userId: payload.sub, tenantId: payload.tenantId, role: payload.role };
+        return {
+            userId: payload.sub,
+            tenantId: payload.tenantId,
+            role: payload.role,
+        };
     }
 };
 exports.JwtStrategy = JwtStrategy;
