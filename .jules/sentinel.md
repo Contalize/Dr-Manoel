@@ -8,6 +8,10 @@
 **Learning:** It existed likely because it is a common quick pattern for generating temporary random strings in JavaScript when a full UUID library wasn't considered necessary or to save bundle size, without considering the cryptographic weakness of `Math.random()`.
 **Prevention:** Always use `crypto.randomUUID()` to generate unique identifiers in the frontend, which provides a cryptographically secure, collision-free UUIDv4, and is natively supported in modern browsers. `Math.random()` should be restricted to purely visual/non-security randomization.
 
+## 2025-02-23 - [Hardcoded JWT Fallback Secret]
+**Vulnerability:** Found `process.env.JWT_SECRET || 'super-secret'` being used in `apps/api/src/auth/auth.module.ts` and `apps/api/src/auth/jwt.strategy.ts`. This allows the application to start and sign/verify JWTs with a well-known, hardcoded key if the environment variable is accidentally missing, completely breaking authentication security.
+**Learning:** It existed likely because it is a common quick pattern for local development to avoid setting up environment variables immediately, but it poses a critical risk if deployed to production without the variable set.
+**Prevention:** Never use hardcoded fallback secrets for cryptographic functions or JWT signing. Always fail-fast by explicitly checking and throwing an initialization error if required security environment variables are missing before module/strategy initialization.
 ## 2025-02-23 - [Hardcoded Fallback Secrets in JWT Configuration]
 **Vulnerability:** Found `process.env.JWT_SECRET || 'super-secret'` being used to configure the JWT Module and Strategy in NestJS. If the environment variable is missing, the application silently falls back to a known, predictable secret, compromising all JWT tokens signed and verified by the system.
 **Learning:** Hardcoded default secrets are a common but critical security anti-pattern, often introduced during development to avoid initialization errors, but they can easily leak into production environments if configuration management fails.
