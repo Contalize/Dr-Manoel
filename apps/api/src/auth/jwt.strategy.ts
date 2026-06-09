@@ -3,6 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Injectable } from '@nestjs/common';
 
 if (!process.env.JWT_SECRET) {
+  throw new Error('CRITICAL: JWT_SECRET environment variable is not defined.');
   throw new Error('FATAL ERROR: JWT_SECRET environment variable is not defined.');
 // Ensure required security environment variables are present
 if (!process.env.JWT_SECRET) {
