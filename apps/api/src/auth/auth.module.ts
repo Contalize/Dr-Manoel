@@ -5,6 +5,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 
+// Ensure we fail-fast securely if the secret is not configured
 if (!process.env.JWT_SECRET) {
   throw new Error('CRITICAL: JWT_SECRET environment variable is missing.');
 }
@@ -13,7 +14,7 @@ if (!process.env.JWT_SECRET) {
   imports: [
     PassportModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET as string,
+      secret: process.env.JWT_SECRET as string, // Cast to satisfy strict typescript checks
       signOptions: { expiresIn: '1d' },
     }),
   ],

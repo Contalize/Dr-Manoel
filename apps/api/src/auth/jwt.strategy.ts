@@ -6,6 +6,12 @@ if (!process.env.JWT_SECRET) {
   throw new Error('CRITICAL: JWT_SECRET environment variable is missing.');
 }
 
+export interface JwtPayload {
+  sub: string;
+  tenantId: string;
+  role: string;
+}
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor() {
@@ -16,7 +22,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { sub: string; tenantId: string; role: string }) {
-    return { userId: payload.sub, tenantId: payload.tenantId, role: payload.role };
+  validate(payload: JwtPayload) {
+    return {
+      userId: payload.sub,
+      tenantId: payload.tenantId,
+      role: payload.role,
+    };
   }
 }
