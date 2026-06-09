@@ -8,6 +8,10 @@
 **Learning:** It existed likely because it is a common quick pattern for generating temporary random strings in JavaScript when a full UUID library wasn't considered necessary or to save bundle size, without considering the cryptographic weakness of `Math.random()`.
 **Prevention:** Always use `crypto.randomUUID()` to generate unique identifiers in the frontend, which provides a cryptographically secure, collision-free UUIDv4, and is natively supported in modern browsers. `Math.random()` should be restricted to purely visual/non-security randomization.
 
+## 2025-02-23 - [Hardcoded JWT Secrets]
+**Vulnerability:** Found hardcoded fallback strings (`'super-secret'`) being used for JWT signing and validation if `process.env.JWT_SECRET` was missing in `apps/api/src/auth/auth.module.ts` and `apps/api/src/auth/jwt.strategy.ts`. This means that if an environment variable is accidentally omitted in production, the application will silently start using a weak, widely-known secret.
+**Learning:** Hardcoded fallbacks for cryptographic keys are dangerous because they can mask deployment configuration errors, leading to the use of insecure defaults without developers noticing until it's too late.
+**Prevention:** Always follow the "Fail-Fast" principle for critical configuration. Explicitly check for the existence of required security environment variables and `throw new Error(...)` during module initialization if they are missing, preventing the application from starting in an insecure state.
 ## 2024-06-07 - [Hardcoded JWT Secret in Auth Module]
 **Vulnerability:** A hardcoded fallback secret (`'super-secret'`) was used for JWT token signing in `apps/api/src/auth/auth.module.ts` and verification in `apps/api/src/auth/jwt.strategy.ts` (`process.env.JWT_SECRET || 'super-secret'`).
 **Learning:** This is a critical vulnerability that allows attackers to forge valid JWT tokens and bypass authentication entirely if the `JWT_SECRET` environment variable is not explicitly set in production.
