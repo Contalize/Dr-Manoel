@@ -8,6 +8,13 @@ import { JwtStrategy } from './jwt.strategy';
 // Ensure required security environment variables are present
 if (!process.env.JWT_SECRET) {
   throw new Error('CRITICAL SECURITY ERROR: JWT_SECRET environment variable is missing.');
+if (!process.env.JWT_SECRET) {
+  throw new Error('FATAL: JWT_SECRET environment variable is not defined.');
+  throw new Error('FATAL: JWT_SECRET environment variable is required');
+  throw new Error('JWT_SECRET environment variable is missing');
+const jwtSecret = process.env.JWT_SECRET;
+if (!jwtSecret) {
+  throw new Error('CRITICAL: JWT_SECRET environment variable is missing. Refusing to start.');
 }
 
 @Module({
@@ -15,6 +22,8 @@ if (!process.env.JWT_SECRET) {
     PassportModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET as string,
+      secret: process.env.JWT_SECRET as string, // SECURITY: Fail-fast without fallback
+      secret: jwtSecret as string,
       signOptions: { expiresIn: '1d' },
     }),
   ],
