@@ -8,7 +8,7 @@
 **Learning:** It existed likely because it is a common quick pattern for generating temporary random strings in JavaScript when a full UUID library wasn't considered necessary or to save bundle size, without considering the cryptographic weakness of `Math.random()`.
 **Prevention:** Always use `crypto.randomUUID()` to generate unique identifiers in the frontend, which provides a cryptographically secure, collision-free UUIDv4, and is natively supported in modern browsers. `Math.random()` should be restricted to purely visual/non-security randomization.
 
-## 2025-02-23 - [Hardcoded JWT Secret Fallback]
-**Vulnerability:** A hardcoded, insecure string ('super-secret') was used as a fallback for the JWT signing secret (`process.env.JWT_SECRET || 'super-secret'`) during `JwtModule` and `JwtStrategy` initialization in the NestJS API.
-**Learning:** Hardcoded cryptographic secrets, even as fallbacks, expose the application to complete auth bypass and privilege escalation if the environment variable is accidentally omitted or misconfigured, as attackers can trivially forge valid JWTs using the known default secret.
-**Prevention:** Never use hardcoded fallbacks for cryptographic operations. Implement strict fail-fast validation during application bootstrap (e.g., throwing a startup error if `process.env.JWT_SECRET` is missing) to guarantee secure initialization, and explicitly cast the env variable to a string when providing it to configuration modules to satisfy TypeScript's strict null checks.
+## 2024-06-07 - [Hardcoded JWT Secret in Auth Module]
+**Vulnerability:** A hardcoded fallback secret (`'super-secret'`) was used for JWT token signing in `apps/api/src/auth/auth.module.ts` and verification in `apps/api/src/auth/jwt.strategy.ts` (`process.env.JWT_SECRET || 'super-secret'`).
+**Learning:** This is a critical vulnerability that allows attackers to forge valid JWT tokens and bypass authentication entirely if the `JWT_SECRET` environment variable is not explicitly set in production.
+**Prevention:** Always use strict fail-fast validation for critical security environment variables (like secret keys). Throw an error during module initialization if the secret is missing rather than providing an insecure fallback. Ensure to document the required environment variables.

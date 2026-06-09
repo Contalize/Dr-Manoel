@@ -2,14 +2,9 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
 import { Injectable } from '@nestjs/common';
 
-if (!process.env.JWT_SECRET) {
-  throw new Error('CRITICAL: JWT_SECRET environment variable is missing.');
-}
-
-export interface JwtPayload {
-  sub: string;
-  tenantId: string;
-  role: string;
+const jwtSecret = process.env.JWT_SECRET;
+if (!jwtSecret) {
+  throw new Error('CRITICAL: JWT_SECRET environment variable is missing. Refusing to start.');
 }
 
 @Injectable()
