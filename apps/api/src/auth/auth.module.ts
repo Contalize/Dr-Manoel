@@ -6,6 +6,7 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 
 if (!process.env.JWT_SECRET) {
+  throw new Error('FATAL: JWT_SECRET environment variable is required');
   throw new Error('JWT_SECRET environment variable is missing');
 const jwtSecret = process.env.JWT_SECRET;
 if (!jwtSecret) {

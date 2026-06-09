@@ -8,6 +8,10 @@
 **Learning:** It existed likely because it is a common quick pattern for generating temporary random strings in JavaScript when a full UUID library wasn't considered necessary or to save bundle size, without considering the cryptographic weakness of `Math.random()`.
 **Prevention:** Always use `crypto.randomUUID()` to generate unique identifiers in the frontend, which provides a cryptographically secure, collision-free UUIDv4, and is natively supported in modern browsers. `Math.random()` should be restricted to purely visual/non-security randomization.
 
+## 2025-02-23 - [Hardcoded Fallback Secrets for JWT Signing]
+**Vulnerability:** Found hardcoded fallback secrets (`process.env.JWT_SECRET || 'super-secret'`) being used for JWT signing in `apps/api/src/auth/auth.module.ts` and `apps/api/src/auth/jwt.strategy.ts`. This poses a critical risk if the environment variable is not properly set in production, causing the system to silently fallback to a known, insecure secret.
+**Learning:** This likely occurred as a developer convenience to avoid startup crashes during local development when environment variables were not configured. However, it violates the "fail securely" principle.
+**Prevention:** Never use hardcoded fallback secrets for cryptographic functions or JWT signing. Always fail-fast by explicitly checking for the environment variable during initialization (e.g., throwing an error if missing) and type casting it securely.
 ## 2025-02-23 - [Hardcoded JWT Secrets]
 **Vulnerability:** Found hardcoded fallback strings (`'super-secret'`) being used for JWT signing and validation if `process.env.JWT_SECRET` was missing in `apps/api/src/auth/auth.module.ts` and `apps/api/src/auth/jwt.strategy.ts`. This means that if an environment variable is accidentally omitted in production, the application will silently start using a weak, widely-known secret.
 **Learning:** Hardcoded fallbacks for cryptographic keys are dangerous because they can mask deployment configuration errors, leading to the use of insecure defaults without developers noticing until it's too late.
