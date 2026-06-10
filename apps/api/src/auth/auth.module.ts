@@ -6,6 +6,7 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 
 if (!process.env.JWT_SECRET) {
+  throw new Error('CRITICAL SECURITY ERROR: JWT_SECRET environment variable is not set. Failing fast to prevent insecure fallback.');
   throw new Error('CRITICAL: JWT_SECRET environment variable is not defined.');
   throw new Error('FATAL ERROR: JWT_SECRET environment variable is not defined.');
 // Ensure required security environment variables are present
