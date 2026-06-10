@@ -9,6 +9,10 @@ if (!process.env.JWT_SECRET) {
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor() {
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET environment variable is missing');
+    }
+
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -16,7 +20,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: any) {
-    return { userId: payload.sub, tenantId: payload.tenantId, role: payload.role };
+  validate(payload: { sub: string; tenantId: string; role: string }) {
+  validate(payload: JwtPayload) {
+    return {
+      userId: payload.sub,
+      tenantId: payload.tenantId,
+      role: payload.role,
+    };
   }
 }
