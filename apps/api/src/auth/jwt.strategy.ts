@@ -2,27 +2,32 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
 import { Injectable } from '@nestjs/common';
 
-interface JwtPayload {
-  sub: string;
-  tenantId: string;
-  role: string;
+if (!process.env.JWT_SECRET) {
+  throw new Error('CRITICAL: JWT_SECRET environment variable is not defined.');
+  throw new Error('FATAL ERROR: JWT_SECRET environment variable is not defined.');
+// Ensure required security environment variables are present
+if (!process.env.JWT_SECRET) {
+  throw new Error('CRITICAL SECURITY ERROR: JWT_SECRET environment variable is missing.');
+const jwtSecret = process.env.JWT_SECRET;
+if (!jwtSecret) {
+  throw new Error('CRITICAL: JWT_SECRET environment variable is missing. Refusing to start.');
 }
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor() {
     if (!process.env.JWT_SECRET) {
-      throw new Error(
-        'FATAL ERROR: JWT_SECRET environment variable is not set.',
-      );
+      throw new Error('JWT_SECRET environment variable is missing');
     }
+
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET,
+      secretOrKey: process.env.JWT_SECRET as string,
     });
   }
 
+  validate(payload: { sub: string; tenantId: string; role: string }) {
   validate(payload: JwtPayload) {
     return {
       userId: payload.sub,
