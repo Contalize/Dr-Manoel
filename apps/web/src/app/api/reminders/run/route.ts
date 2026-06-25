@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { initializeApp, getApps, cert } from "firebase-admin/app";
+import { timingSafeEqual } from "crypto";
 import { getFirestore } from "firebase-admin/firestore";
 
 // Inicializa o Firebase Admin SDK (apenas no servidor)
@@ -36,7 +37,19 @@ export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   const expectedToken = process.env.REMINDER_SECRET;
 
-  if (!expectedToken || authHeader !== `Bearer ${expectedToken}`) {
+  if (!expectedToken || !authHeader) {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  }
+
+  // Previne ataques de tempo (timing attacks) garantindo tempo de comparação constante
+  const expectedAuthHeader = `Bearer ${expectedToken}`;
+  const providedAuthBuffer = Buffer.from(authHeader);
+  const expectedAuthBuffer = Buffer.from(expectedAuthHeader);
+
+  if (
+    providedAuthBuffer.length !== expectedAuthBuffer.length ||
+    !timingSafeEqual(providedAuthBuffer, expectedAuthBuffer)
+  ) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 
