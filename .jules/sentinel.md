@@ -12,3 +12,8 @@
 **Vulnerability:** Found `process.env.JWT_SECRET || 'super-secret'` in `apps/api/src/auth/auth.module.ts` and `apps/api/src/auth/jwt.strategy.ts`. If `JWT_SECRET` is misconfigured or missing in production, the application silently falls back to a publicly known, hardcoded secret, allowing anyone to mint valid JWTs and bypass authentication completely.
 **Learning:** Hardcoded cryptographic fallbacks are a critical anti-pattern because they mask configuration errors and fail silently into an insecure state rather than failing fast and visibly.
 **Prevention:** Never use hardcoded fallback secrets for cryptographic functions or JWT signing. Always implement fail-fast mechanisms by explicitly checking and throwing an initialization error if required security environment variables are missing during startup.
+
+## 2026-06-25 - [Timing Attack Vulnerability in Token Comparison]
+**Vulnerability:** Found direct string comparison `authHeader !== \`Bearer ${expectedToken}\`` being used to validate secret tokens in `apps/web/src/app/api/reminders/run/route.ts`. This standard comparison operator stops at the first differing character, meaning the time it takes to execute depends on how much of the string matches.
+**Learning:** This introduces a potential timing attack vulnerability where an attacker can theoretically deduce the secret token character-by-character by measuring the response times of the server.
+**Prevention:** Always use a timing-safe comparison function, such as `crypto.timingSafeEqual`, when comparing sensitive strings like tokens or passwords to ensure constant-time validation regardless of string matches. Note: ensure buffers are the same length before comparing.
