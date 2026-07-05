@@ -12,3 +12,8 @@
 **Vulnerability:** Found `process.env.JWT_SECRET || 'super-secret'` in `apps/api/src/auth/auth.module.ts` and `apps/api/src/auth/jwt.strategy.ts`. If `JWT_SECRET` is misconfigured or missing in production, the application silently falls back to a publicly known, hardcoded secret, allowing anyone to mint valid JWTs and bypass authentication completely.
 **Learning:** Hardcoded cryptographic fallbacks are a critical anti-pattern because they mask configuration errors and fail silently into an insecure state rather than failing fast and visibly.
 **Prevention:** Never use hardcoded fallback secrets for cryptographic functions or JWT signing. Always implement fail-fast mechanisms by explicitly checking and throwing an initialization error if required security environment variables are missing during startup.
+
+## 2025-05-29 - [Overly Permissive CORS Configuration]
+**Vulnerability:** Found `app.enableCors()` with empty arguments in `apps/api/src/main.ts`. This defaults to allowing requests from any origin (`*`), which could allow malicious websites to make cross-origin requests and read sensitive data if they can trick a user's browser.
+**Learning:** This is a common oversight where developers enable CORS to fix local development issues but forget to lock it down for production, leaving the API exposed to cross-origin attacks.
+**Prevention:** Always explicitly configure CORS with specific allowed origins (e.g., using environment variables like `FRONTEND_URL`), specific HTTP methods, and explicitly set `credentials: true` only if needed, rather than relying on permissive defaults.
