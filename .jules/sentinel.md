@@ -12,3 +12,8 @@
 **Vulnerability:** Found `process.env.JWT_SECRET || 'super-secret'` in `apps/api/src/auth/auth.module.ts` and `apps/api/src/auth/jwt.strategy.ts`. If `JWT_SECRET` is misconfigured or missing in production, the application silently falls back to a publicly known, hardcoded secret, allowing anyone to mint valid JWTs and bypass authentication completely.
 **Learning:** Hardcoded cryptographic fallbacks are a critical anti-pattern because they mask configuration errors and fail silently into an insecure state rather than failing fast and visibly.
 **Prevention:** Never use hardcoded fallback secrets for cryptographic functions or JWT signing. Always implement fail-fast mechanisms by explicitly checking and throwing an initialization error if required security environment variables are missing during startup.
+
+## 2025-05-28 - [Overly Permissive Default CORS Configuration]
+**Vulnerability:** The NestJS API (`apps/api`) was configured with `app.enableCors();` without any arguments, which defaults to allowing requests from any origin (`*`).
+**Learning:** Relying on default framework configurations for CORS often leads to overly permissive access, creating security risks such as Cross-Origin Resource Sharing attacks, especially in systems handling sensitive health data.
+**Prevention:** Always explicitly configure CORS policies by specifying allowed origins, methods, and credentials, rather than relying on empty default arguments.
