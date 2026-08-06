@@ -86,7 +86,7 @@ import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAction } from "@/lib/audit";
-import { cn } from "@/lib/utils";
+import { cn, formatFirestoreDate } from "@/lib/utils";
 import { NewPrescriptionDialog } from "@/components/prescriptions/NewPrescriptionDialog";
 import { PrescriptionPrintView } from "@/components/prescriptions/PrescriptionPrintView";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
@@ -105,6 +105,7 @@ interface Prescription {
   date: any;
   medications: any[];
   notes: string;
+  professionalName?: string;
 }
 
 interface Consultation {
@@ -136,7 +137,7 @@ interface Protocol {
   id: string;
   protocolName: string;
   therapies: Array<{ nome: string; posologia: string; categoria: string }>;
-  aiExplanation: string;
+  clinicalJustification?: string;
   createdAt: any;
   createdBy: string;
   status: string;
@@ -186,7 +187,10 @@ export function PatientDetailClient() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id) {
+      setIsLoading(false);
+      return;
+    }
 
     const fetchPatient = async () => {
       if (!user) return;
@@ -396,7 +400,7 @@ export function PatientDetailClient() {
               <span className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> {patient.phone}</span>
               <span className="flex items-center gap-1.5 font-bold text-primary">
                 <Clock className="h-3.5 w-3.5" /> 
-                {patient.lastConsultation ? `Última: ${patient.lastConsultation}` : "Nunca"}
+                {formatFirestoreDate(patient.lastConsultation) ? `Última: ${formatFirestoreDate(patient.lastConsultation)}` : "Nunca"}
               </span>
             </div>
           </div>
@@ -901,7 +905,7 @@ export function PatientDetailClient() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-bold text-primary font-headline">Protocolos Integrativos</h2>
-              <p className="text-sm text-muted-foreground">Planos terapêuticos criados pelo Planejador IA.</p>
+              <p className="text-sm text-muted-foreground">Planos terapêuticos criados pelo Planejador.</p>
             </div>
             <Link href="/planner">
               <Button className="bg-accent text-white hover:bg-accent/90">
@@ -957,13 +961,13 @@ export function PatientDetailClient() {
                       </div>
                     </div>
                   )}
-                  {proto.aiExplanation && (
+                  {proto.clinicalJustification && (
                     <div className="p-3 bg-accent/5 border border-accent/20 rounded-xl">
                       <p className="text-[10px] font-bold text-accent uppercase tracking-widest mb-1">
-                        Racional IA
+                        Justificativa Terapêutica
                       </p>
                       <p className="text-xs text-slate-600 leading-relaxed line-clamp-3">
-                        {proto.aiExplanation}
+                        {proto.clinicalJustification}
                       </p>
                     </div>
                   )}
@@ -996,8 +1000,7 @@ export function PatientDetailClient() {
           patientCpf={patient.cpf}
           medications={printingPrescription.medications || []}
           notes={printingPrescription.notes}
-          professionalName={auth.currentUser?.email?.split('@')[0] || "Dr. Manoel"}
-          professionalCrf="CRF/SP 000000"
+          professionalName={printingPrescription.professionalName || auth.currentUser?.email?.split('@')[0] || "Dr. Manoel"}
           clinicName="Dr. Manoel — Farmácia Integrativa"
           prescriptionDate={printingPrescription.date?.toDate?.() || new Date()}
         />

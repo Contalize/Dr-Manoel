@@ -92,16 +92,20 @@ export function DashboardSidebar() {
         const q = query(
           collection(db, "patients"),
           where("professionalId", "==", user?.uid),
-          where("name", ">=", globalSearch),
-          where("name", "<=", globalSearch + ""),
-          limit(6)
+          limit(100)
         )
         const snap = await getDocs(q)
-        setSearchResults(snap.docs.map(d => ({
+        const term = globalSearch.toLowerCase()
+        const allPatients = snap.docs.map(d => ({
           id: d.id,
           name: d.data().name as string,
           cpf: d.data().cpf as string
-        })))
+        }))
+        setSearchResults(
+          allPatients
+            .filter(p => p.name?.toLowerCase().includes(term) || p.cpf?.includes(term))
+            .slice(0, 6)
+        )
         setShowResults(true)
       } catch (e) {
         console.error("Erro na busca global:", e)

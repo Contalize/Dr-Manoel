@@ -35,15 +35,20 @@ export default function DashboardPage() {
 
   // Subscrição em tempo real dos agendamentos de hoje
   useEffect(() => {
+    if (!user?.uid) return;
     const todayStr = format(new Date(), "yyyy-MM-dd")
-    const q = query(collection(db, "appointments"), where("date", "==", todayStr))
+    const q = query(
+      collection(db, "appointments"),
+      where("date", "==", todayStr),
+      where("professionalId", "==", user.uid)
+    )
     const unsub = onSnapshot(q, (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Appointment))
       data.sort((a, b) => a.time.localeCompare(b.time))
       setAppointments(data)
     })
     return () => unsub()
-  }, [])
+  }, [user?.uid])
 
   // Próximo agendamento pendente
   const nextAppointment = useMemo(() => {

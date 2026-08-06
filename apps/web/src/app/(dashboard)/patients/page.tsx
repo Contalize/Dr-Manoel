@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react";
-import { db, auth } from "@/firebase/config";
+import { db, auth, functions } from "@/firebase/config";
 import {
   collection,
   onSnapshot,
@@ -65,7 +65,8 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { cn } from "@/lib/utils";
+import { cn, formatFirestoreDate } from "@/lib/utils";
+import { httpsCallable } from "firebase/functions";
 import { logAction } from "@/lib/audit";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -83,7 +84,8 @@ interface Patient {
   chronoAge: number;
   bioAge: number;
   gender: string;
-  lastConsultation: string;
+  lastConsultation: unknown;
+  lgpdConsent?: boolean;
   status: 'active' | 'inactive';
 }
 
@@ -177,7 +179,7 @@ export default function PatientsPage() {
       birthDate: patient.birthDate,
       bioAge: patient.bioAge.toString(),
       gender: patient.gender || "Feminino",
-      lgpdConsent: true
+      lgpdConsent: patient.lgpdConsent ?? false
     });
     setIsDialogOpen(true);
   };
@@ -206,12 +208,8 @@ export default function PatientsPage() {
       }
       const wa = waDoc.data() as { instanceId: string; token: string };
       const message = `Olá, *${patient.name}*! 👋\n\nEquipe Dr. Manoel da Farmácia entrando em contato. Como podemos te ajudar? 💚`;
-      const response = await fetch("/api/whatsapp/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: patient.phone, message, instanceId: wa.instanceId, token: wa.token })
-      });
-      if (!response.ok) throw new Error();
+      const sendWhatsappTest = httpsCallable(functions, "sendWhatsappTest");
+      await sendWhatsappTest({ phone: patient.phone, message, instanceId: wa.instanceId, token: wa.token });
       await logAction("WHATSAPP_MENSAGEM_PACIENTE", patient.id, { nome: patient.name });
       toast({ title: `Mensagem enviada para ${patient.name}` });
     } catch {
@@ -287,7 +285,7 @@ export default function PatientsPage() {
                            p.cpf?.includes(searchTerm);
       
       if (!matchesSearch) return false;
-      if (activeFilter === 'today') return p.lastConsultation === todayStr;
+      if (activeFilter === 'today') return formatFirestoreDate(p.lastConsultation) === todayStr;
       return true;
     }).slice(0, 20);
   }, [patients, searchTerm, activeFilter, todayStr]);
@@ -479,10 +477,7 @@ export default function PatientsPage() {
                   </TableCell>
                   <TableCell className="text-[11px] font-bold text-slate-600">
                     {(() => {
-                      let strVal = p.lastConsultation;
-                      if (p.lastConsultation && typeof p.lastConsultation === 'object' && 'seconds' in p.lastConsultation) {
-                        strVal = new Date((p.lastConsultation as any).seconds * 1000).toLocaleDateString('pt-BR');
-                      }
+                      const strVal = formatFirestoreDate(p.lastConsultation);
                       if (strVal === todayStr) {
                         return <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-none text-[9px] h-4 font-bold">HOJE</Badge>;
                       }

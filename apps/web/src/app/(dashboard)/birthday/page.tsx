@@ -63,7 +63,7 @@ export default function BirthdayPage() {
         if (!birthDate) return null
         const thisYear = new Date(today.getFullYear(), getMonth(birthDate), getDate(birthDate))
         const daysUntil = Math.round((thisYear.getTime() - todayNorm.getTime()) / 86400000)
-        const age = differenceInYears(today, birthDate) + (daysUntil <= 0 ? 1 : 0)
+        const age = differenceInYears(today, birthDate)
         return { ...p, birthDate, thisYear, daysUntil, age }
       })
       .filter(Boolean) as (Patient & { birthDate: Date; thisYear: Date; daysUntil: number; age: number })[]

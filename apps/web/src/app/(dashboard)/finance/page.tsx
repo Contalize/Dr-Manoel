@@ -67,7 +67,8 @@ export default function FinancePage() {
   const [stats, setStats] = useState({
     monthlyRevenue: 0,
     pendingPayments: 0,
-    avgTicket: 0
+    avgTicket: 0,
+    revenueTrend: null as { value: string; positive: boolean } | null
   });
 
   const [cashFlow, setCashFlow] = useState<Array<{ name: string; receitas: number; despesas: number }>>([]);
@@ -164,14 +165,16 @@ export default function FinancePage() {
 
       // Calcular estatísticas
       const paid = txs.filter(tx => tx.status === 'Paid');
+      const paidRevenue = paid.filter(tx => tx.amount > 0);
       const pending = txs.filter(tx => tx.status === 'Pending');
-      const total = paid.reduce((acc, tx) => acc + (tx.amount > 0 ? tx.amount : 0), 0);
+      const total = paidRevenue.reduce((acc, tx) => acc + tx.amount, 0);
       const totalPending = pending.reduce((acc, tx) => acc + Math.abs(tx.amount), 0);
-      setStats({
+      setStats(prev => ({
+        ...prev,
         monthlyRevenue: total,
         pendingPayments: totalPending,
-        avgTicket: paid.length > 0 ? total / paid.length : 0
-      });
+        avgTicket: paidRevenue.length > 0 ? total / paidRevenue.length : 0
+      }));
 
       // Construir cashFlow dos últimos 6 meses
       const now = new Date();
@@ -191,6 +194,16 @@ export default function FinancePage() {
           despesas: Math.abs(monthTxs.filter(tx => tx.amount < 0).reduce((s, tx) => s + tx.amount, 0))
         };
       });
+
+      // Tendência real: receita do mês atual vs. mês anterior (só exibe se houver base de comparação)
+      const currentMonth = flow[flow.length - 1];
+      const previousMonth = flow[flow.length - 2];
+      let revenueTrend: { value: string; positive: boolean } | null = null;
+      if (previousMonth && previousMonth.receitas > 0) {
+        const pct = ((currentMonth.receitas - previousMonth.receitas) / previousMonth.receitas) * 100;
+        revenueTrend = { value: `${Math.abs(pct).toFixed(0)}%`, positive: pct >= 0 };
+      }
+      setStats(prev => ({ ...prev, revenueTrend }));
 
       setCashFlow(flow);
     });
@@ -325,7 +338,7 @@ export default function FinancePage() {
           title="Receita Total"
           value={formatCurrency(stats.monthlyRevenue)}
           icon={CircleDollarSign}
-          trend={{ value: "15%", positive: true }}
+          trend={stats.revenueTrend ?? undefined}
         />
         <StatCard
           title="Pagamentos Pendentes"

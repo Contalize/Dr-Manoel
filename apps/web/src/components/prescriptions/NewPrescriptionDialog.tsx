@@ -53,6 +53,7 @@ import { logAction } from "@/lib/audit"
 import { useClinic } from "@/contexts/ClinicContext"
 import { useAuth } from "@/contexts/AuthContext"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { BASE_MEDICAMENTOS } from "@/data/medicamentos"
 
 const ADMINISTRATION_ROUTES = [
   { value: "VO", label: "Via Oral (VO)" },
@@ -78,7 +79,7 @@ const medicationSchema = z.object({
 })
 
 const prescriptionFormSchema = z.object({
-  patientId: z.string({ required_error: "Selecione um paciente." }),
+  patientId: z.string({ required_error: "Selecione um paciente." }).min(1, "Selecione um paciente."),
   professionalId: z.string().optional().default(""),
   notes: z.string().optional(),
   medications: z.array(medicationSchema).min(1, "Adicione pelo menos um medicamento"),
@@ -96,18 +97,6 @@ interface NewPrescriptionDialogProps {
   onClose?: () => void
 }
 
-const FAKE_API_MEDS = [
-  { id: "1", nome_comercial: "Ivermectina", principio_ativo: "Ivermectina", concentracao: "6mg", categoria: "Antiparasitário" },
-  { id: "2", nome_comercial: "Amoxicilina", principio_ativo: "Amoxicilina", concentracao: "500mg", categoria: "Antibiótico" },
-  { id: "3", nome_comercial: "Amoxicilina + Clavulanato", principio_ativo: "Amoxicilina/Clavulanato", concentracao: "875mg/125mg", categoria: "Antibiótico" },
-  { id: "4", nome_comercial: "Dipirona", principio_ativo: "Dipirona Sódica", concentracao: "500mg", categoria: "Analgésico" },
-  { id: "5", nome_comercial: "Glifage XR", principio_ativo: "Cloridrato de Metformina", concentracao: "500mg", categoria: "Antidiabético" },
-  { id: "6", nome_comercial: "Vitamina D3", principio_ativo: "Colecalciferol", concentracao: "10.000 UI", categoria: "Suplemento" },
-  { id: "7", nome_comercial: "Complexo B", principio_ativo: "Vitaminas B1, B2, B6, B12", concentracao: "Variada", categoria: "Suplemento" },
-  { id: "8", nome_comercial: "Atenolol", principio_ativo: "Atenolol", concentracao: "50mg", categoria: "Anti-hipertensivo" },
-  { id: "9", nome_comercial: "Ozempic", principio_ativo: "Semaglutida", concentracao: "1mg", categoria: "Antidiabético" },
-]
-
 export function NewPrescriptionDialog({ initialPatientId, initialPatientName, trigger, isOpen, onClose }: NewPrescriptionDialogProps) {
   const [open, setOpen] = React.useState(false)
   const [isSubmitting, setIsSubmitting] = React.useState(false)
@@ -116,7 +105,7 @@ export function NewPrescriptionDialog({ initialPatientId, initialPatientName, tr
   const [openMedicationIndex, setOpenMedicationIndex] = React.useState<number | null>(null)
   
   const [apiSearchTerm, setApiSearchTerm] = React.useState("")
-  const [apiResults, setApiResults] = React.useState<typeof FAKE_API_MEDS>([])
+  const [apiResults, setApiResults] = React.useState<typeof BASE_MEDICAMENTOS>([])
   const [isSearchingMeds, setIsSearchingMeds] = React.useState(false)
 
   const { toast } = useToast()
@@ -184,7 +173,7 @@ export function NewPrescriptionDialog({ initialPatientId, initialPatientName, tr
       setIsSearchingMeds(true)
       await new Promise(r => setTimeout(r, 600)) 
       const term = apiSearchTerm.toLowerCase()
-      setApiResults(FAKE_API_MEDS.filter(m => m.nome_comercial.toLowerCase().includes(term) || m.principio_ativo.toLowerCase().includes(term)))
+      setApiResults(BASE_MEDICAMENTOS.filter(m => m.nome_comercial.toLowerCase().includes(term) || m.principio_ativo.toLowerCase().includes(term)))
       setIsSearchingMeds(false)
     }
     const timer = setTimeout(searchMeds, 300)

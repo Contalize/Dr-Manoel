@@ -2,7 +2,8 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react";
-import { auth, db } from "@/firebase/config";
+import { auth, db, functions } from "@/firebase/config";
+import { httpsCallable } from "firebase/functions";
 import { collection, onSnapshot, query, where, limit, addDoc, serverTimestamp, updateDoc, doc, deleteDoc, getDoc, getDocs } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -106,16 +107,20 @@ export default function CalendarPage() {
         const q = query(
           collection(db, "patients"),
           where("professionalId", "==", user.uid),
-          where("name", ">=", patientSearch),
-          where("name", "<=", patientSearch + "\uf8ff"),
-          limit(6)
+          limit(100)
         );
         const snap = await getDocs(q);
-        setPatientResults(snap.docs.map(d => ({
+        const term = patientSearch.toLowerCase();
+        const allPatients = snap.docs.map(d => ({
           id: d.id,
           name: d.data().name as string,
           phone: (d.data().phone as string) || ""
-        })));
+        }));
+        setPatientResults(
+          allPatients
+            .filter(p => p.name?.toLowerCase().includes(term))
+            .slice(0, 6)
+        );
       } catch (e) {
         console.error("Erro na busca de pacientes:", e);
       } finally {
@@ -283,13 +288,8 @@ export default function CalendarPage() {
       const formattedDate = format(parseISO(appointment.date), "dd/MM/yyyy", { locale: ptBR });
       const message = `Olá, *${appointment.patientName}*! 👋\n\nLembramos da sua consulta:\n\n📅 *${formattedDate}*\n⏰ *${appointment.time}*\n🏥 *Dr. Manoel da Farmácia*\n\nPara confirmar ou reagendar, responda esta mensagem. 💚`;
 
-      const response = await fetch("/api/whatsapp/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, message, instanceId: wa.instanceId, token: wa.token })
-      });
-
-      if (!response.ok) throw new Error("Falha no envio");
+      const sendWhatsappTest = httpsCallable(functions, "sendWhatsappTest");
+      await sendWhatsappTest({ phone, message, instanceId: wa.instanceId, token: wa.token });
 
       await logAction("WHATSAPP_LEMBRETE_MANUAL", appointment.id, { paciente: appointment.patientName });
       toast({ title: `Mensagem enviada para ${appointment.patientName}` });
@@ -566,6 +566,7 @@ export default function CalendarPage() {
             <CardContent className="p-4">
               <Calendar
                 mode="single"
+                required
                 selected={date}
                 onSelect={setDate}
                 className="rounded-md w-full"

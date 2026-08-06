@@ -50,14 +50,21 @@ export default function RegisterPage() {
         createdAt: serverTimestamp(),
       }
 
-      const specificData = type === "pf" 
+      const specificData = type === "pf"
         ? { nome_exibicao: name, name, cpf, crf }
         : { nome_exibicao: nomeFantasia, razaoSocial, nomeFantasia, cnpj, responsavelTecnico: rt }
 
-      await setDoc(doc(db, "users", user.uid), {
-        ...commonData,
-        ...specificData
-      })
+      try {
+        await setDoc(doc(db, "users", user.uid), {
+          ...commonData,
+          ...specificData
+        })
+      } catch (profileError) {
+        // Sem o perfil no Firestore o login fica "quebrado" (sem nome/CRF/tipo).
+        // Melhor desfazer a conta de Auth e deixar o usuário tentar de novo do zero.
+        try { await user.delete() } catch { /* rollback best-effort */ }
+        throw new Error("Não foi possível salvar seu perfil. Tente novamente.")
+      }
 
       toast({
         title: "Cadastro Concluído!",
