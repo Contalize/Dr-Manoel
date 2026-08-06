@@ -4,12 +4,13 @@
 import { useState, useEffect, useMemo } from "react";
 import { db, auth } from "@/firebase/config";
 import { useAuth } from "@/contexts/AuthContext";
-import { 
-  addDoc, 
+import {
+  addDoc,
   collection,
   serverTimestamp,
   query,
   where,
+  orderBy,
   getDocs,
   limit
 } from "firebase/firestore";
@@ -17,9 +18,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
-import { 
-  Sparkles, 
-  Plus, 
+import {
+  Plus,
   Trash2, 
   Save, 
   CheckCircle2, 
@@ -35,7 +35,6 @@ import {
   ExternalLink,
   ShieldCheck
 } from "lucide-react";
-import { generateProtocolExplanation } from "@/ai/flows/generate-protocol-explanation";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -54,8 +53,7 @@ export default function PlannerPage() {
   const [therapies, setTherapies] = useState<TerapiaSelecionada[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [suggestions, setSuggestions] = useState<MedicamentoReferencia[]>([]);
-  const [explanation, setExplanation] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [clinicalJustification, setClinicalJustification] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
 
@@ -77,12 +75,16 @@ export default function PlannerPage() {
         const q = query(
           collection(db, "patients"),
           where("professionalId", "==", user.uid),
-          where("name", ">=", patientSearch),
-          where("name", "<=", patientSearch + "\uf8ff"),
-          limit(5)
+          limit(100)
         );
         const snap = await getDocs(q);
-        setPatientResults(snap.docs.map(d => ({ id: d.id, name: d.data().name, cpf: d.data().cpf } as PatientOption)));
+        const term = patientSearch.toLowerCase();
+        const allPatients = snap.docs.map(d => ({ id: d.id, name: d.data().name, cpf: d.data().cpf } as PatientOption));
+        setPatientResults(
+          allPatients
+            .filter(p => p.name?.toLowerCase().includes(term) || p.cpf?.includes(term))
+            .slice(0, 5)
+        );
         setIsSearchingPatient(false);
       } else {
         setPatientResults([]);
@@ -95,9 +97,12 @@ export default function PlannerPage() {
   const loadPatientContext = async (patient: PatientOption) => {
     try {
       // Buscar a última consulta SOAP do paciente
+      if (!user?.uid) return;
       const q = query(
         collection(db, "consultations"),
+        where("professionalId", "==", user.uid),
         where("patientId", "==", patient.id),
+        orderBy("date", "desc"),
         limit(1)
       );
       const snap = await getDocs(q);
@@ -166,42 +171,6 @@ export default function PlannerPage() {
     );
   };
 
-  const handleGenerateAI = async () => {
-    if (!protocolName || therapies.length === 0 || !anamnesisSummary) {
-      toast({
-        title: "Dados Incompletos",
-        description: "Preencha o título, contexto clínico e adicione terapias.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsGenerating(true);
-    try {
-      const result = await generateProtocolExplanation({
-        protocolName,
-        anamnesisNotes: anamnesisSummary,
-        selectedTherapies: therapies.map(t => `${t.nome_comercial} (${t.principio_ativo}) - ${t.categoria}`)
-      });
-      setExplanation(result.explanation);
-      
-      await logAction("GERAR_RACIONAL_CLINICO_IA", "N/A", { protocolo: protocolName });
-
-      toast({
-        title: "Racional Clínico Gerado",
-        description: "Análise de compatibilidade finalizada com sucesso.",
-      });
-    } catch (error) {
-      toast({
-        title: "Erro na IA Clínica",
-        description: "Não foi possível processar o racional clínico.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
   const saveProtocol = async () => {
     if (!selectedPatient) {
       toast({
@@ -239,7 +208,7 @@ export default function PlannerPage() {
           posologia: t.posologia,
           contraindicacoes: t.contraindicacoes
         })),
-        aiExplanation: explanation || "",
+        clinicalJustification: clinicalJustification || "",
         createdAt: serverTimestamp(),
         createdBy: professionalEmail,
         professionalId: professionalUid,
@@ -270,7 +239,7 @@ export default function PlannerPage() {
       setProtocolName("");
       setAnamnesisSummary("");
       setTherapies([]);
-      setExplanation("");
+      setClinicalJustification("");
       setSelectedPatient(null);
 
     } catch (error) {
@@ -514,31 +483,18 @@ export default function PlannerPage() {
           <Card className="border-none shadow-xl bg-white overflow-hidden">
             <CardHeader className="bg-accent text-white">
               <CardTitle className="flex items-center gap-2 font-headline text-lg">
-                <Sparkles className="h-5 w-5" />
-                Racional IA Dr. Manoel
+                <CheckCircle2 className="h-5 w-5" />
+                Justificativa Terapêutica
               </CardTitle>
-              <CardDescription className="text-white/80">Validação técnica baseada na anamnese.</CardDescription>
+              <CardDescription className="text-white/80">Registre o racional clínico do protocolo.</CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
-              <Button 
-                onClick={handleGenerateAI} 
-                disabled={isGenerating}
-                className="w-full bg-accent hover:bg-accent/90 text-white shadow-lg py-7 font-bold text-md"
-              >
-                {isGenerating ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Sparkles className="h-5 w-5 mr-2" />}
-                Analisar Racional Clínico
-              </Button>
-              
-              {explanation && (
-                <div className="mt-6 p-5 bg-accent/5 border border-accent/20 rounded-2xl space-y-4 animate-in fade-in zoom-in-95">
-                  <h4 className="text-[10px] font-bold text-accent uppercase tracking-widest flex items-center gap-2">
-                    <CheckCircle2 className="h-3 w-3" /> Justificativa Terapêutica
-                  </h4>
-                  <div className="text-sm text-foreground leading-relaxed font-medium whitespace-pre-wrap">
-                    {explanation}
-                  </div>
-                </div>
-              )}
+              <Textarea
+                value={clinicalJustification}
+                onChange={(e) => setClinicalJustification(e.target.value)}
+                placeholder="Descreva o racional clínico deste protocolo: por que estas terapias foram escolhidas, objetivo terapêutico, pontos de atenção..."
+                className="min-h-[180px] text-sm"
+              />
             </CardContent>
             <CardFooter className="pt-0 flex flex-col items-stretch px-6 pb-6 gap-3">
               <Button 

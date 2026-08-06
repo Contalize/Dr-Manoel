@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { db } from "@/firebase/config"
+import { db, functions } from "@/firebase/config"
+import { httpsCallable } from "firebase/functions"
 import { 
   collection, 
   onSnapshot, 
@@ -204,17 +205,13 @@ export default function SettingsPage() {
     }
     setIsTestingWa(true)
     try {
-      const response = await fetch("/api/whatsapp/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone: testPhone,
-          message: "✅ Dr. Manoel: conexão WhatsApp funcionando! Este é o seu lembrete automático de consultas.",
-          instanceId: waSettings.instanceId,
-          token: waSettings.token
-        })
+      const sendWhatsappTest = httpsCallable(functions, "sendWhatsappTest")
+      await sendWhatsappTest({
+        phone: testPhone,
+        message: "✅ Dr. Manoel: conexão WhatsApp funcionando! Este é o seu lembrete automático de consultas.",
+        instanceId: waSettings.instanceId,
+        token: waSettings.token
       })
-      if (!response.ok) throw new Error("Falha no envio")
       toast({ title: "Mensagem de teste enviada!", description: `Verifique o WhatsApp do número ${testPhone}` })
     } catch {
       toast({ title: "Erro ao enviar teste. Verifique as credenciais.", variant: "destructive" })

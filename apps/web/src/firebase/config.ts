@@ -2,6 +2,7 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { getStorage } from "firebase/storage";
+import { getFunctions } from "firebase/functions";
 import { getAnalytics, isSupported } from "firebase/analytics";
 
 const firebaseConfig = {
@@ -18,6 +19,8 @@ const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 const storage = getStorage(app);
+// Região precisa coincidir com a região de deploy das Cloud Functions (functions/src/index.ts)
+const functions = getFunctions(app, "southamerica-east1");
 
 if (typeof window !== 'undefined') {
   isSupported().then((supported) => {
@@ -25,4 +28,4 @@ if (typeof window !== 'undefined') {
   });
 }
 
-export { app, db, auth, storage };
+export { app, db, auth, storage, functions };

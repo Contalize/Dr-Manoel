@@ -63,10 +63,14 @@ service cloud.firestore {
     }
 
     // ── Agendamentos ─────────────────────────────────────────────
-    // Qualquer profissional autenticado pode gerenciar a agenda da clínica
+    // Isolamento total por professionalId (mesmo padrão de /patients)
     match /appointments/{appointmentId} {
-      allow read, create: if isAuthenticated();
-      allow update, delete: if isAuthenticated();
+      allow read: if isAuthenticated() && isOwner("professionalId");
+      allow create: if isAuthenticated() && isCreatingAsOwner("professionalId");
+      allow update: if isAuthenticated()
+        && isOwner("professionalId")
+        && isCreatingAsOwner("professionalId");
+      allow delete: if isAuthenticated() && isOwner("professionalId");
     }
 
     // ── Registros clínicos ───────────────────────────────────────
