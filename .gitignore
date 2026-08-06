@@ -1,5 +1,9 @@
 node_modules
 .next
+out
+*.tsbuildinfo
+build_*.txt
+build_*.log
 .env
 .env.local
 .env.development.local
