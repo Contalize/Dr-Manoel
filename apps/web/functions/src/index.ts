@@ -146,9 +146,50 @@ export const sendWhatsappReminders = onSchedule(
 );
 
 /**
+ * Callable usada para envios reais (mensagem manual a paciente, lembrete
+ * manual de consulta). Lê as credenciais salvas direto pelo Admin SDK — o
+ * token da Z-API nunca precisa trafegar pelo cliente para esse caso, ao
+ * contrário de sendWhatsappTest, que testa credenciais ainda não salvas.
+ */
+export const sendWhatsappMessage = onCall({ region: REGION }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "É necessário estar autenticado.");
+  }
+
+  const { phone, message } = (request.data || {}) as { phone?: string; message?: string };
+  if (!phone || !message) {
+    throw new HttpsError("invalid-argument", "Campos obrigatórios ausentes: phone, message");
+  }
+
+  const waDoc = await getFirestore().collection("clinic_settings").doc("whatsapp").get();
+  if (!waDoc.exists) {
+    throw new HttpsError("failed-precondition", "WhatsApp não configurado. Acesse Configurações → WhatsApp.");
+  }
+  const { instanceId, token } = waDoc.data() as { instanceId?: string; token?: string };
+  if (!instanceId || !token) {
+    throw new HttpsError("failed-precondition", "WhatsApp não configurado. Acesse Configurações → WhatsApp.");
+  }
+
+  const url = `https://api.z-api.io/instances/${instanceId}/token/${token}/send-text`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone: formatPhone(phone), message }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new HttpsError("internal", `Z-API error: ${error}`);
+  }
+
+  const data = (await response.json()) as { messageId?: string };
+  return { success: true, messageId: data.messageId || "sent" };
+});
+
+/**
  * Callable usada pelo botão "Enviar Teste" em Configurações → WhatsApp.
- * Substitui a antiga rota Next.js /api/whatsapp/send (mesmo problema: rota
- * de servidor inexistente no export estático).
+ * Aceita credenciais explícitas do cliente porque testa valores do
+ * formulário ainda não salvos (por isso não pode ler do Firestore).
  */
 export const sendWhatsappTest = onCall({ region: REGION }, async (request) => {
   if (!request.auth) {

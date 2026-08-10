@@ -31,9 +31,13 @@ service cloud.firestore {
     }
 
     // ── Perfil do usuário ────────────────────────────────────────
-    // Cada usuário só acessa o próprio documento
+    // Cada usuário só acessa o próprio documento. `role` nunca pode ser
+    // definido pelo cliente — evita autopromoção (ex: para "admin") antes
+    // de existir um mecanismo server-side de atribuição de roles.
     match /users/{userId} {
-      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow write: if isAuthenticated() && request.auth.uid == userId
+        && !("role" in request.resource.data);
     }
 
     // ── Configurações da clínica ─────────────────────────────────
