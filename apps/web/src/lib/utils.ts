@@ -20,3 +20,23 @@ export function formatFirestoreDate(value: unknown): string | null {
   }
   return null;
 }
+
+/**
+ * birthDate é gravado como string "yyyy-MM-dd" ou, em alguns registros, como
+ * Firestore Timestamp. Normaliza os dois formatos para um Date local.
+ * Usa meio-dia (T12:00:00) ao interpretar a string para evitar o clássico bug
+ * de "um dia a menos" quando o fuso do navegador tem offset negativo em relação ao UTC.
+ */
+export function parseBirthDate(birthDate: unknown): Date | null {
+  try {
+    if (typeof birthDate === "object" && birthDate !== null && "toDate" in birthDate) {
+      return (birthDate as { toDate: () => Date }).toDate();
+    }
+    if (typeof birthDate === "string") {
+      return new Date(birthDate + "T12:00:00");
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}

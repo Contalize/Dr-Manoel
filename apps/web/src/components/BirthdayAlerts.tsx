@@ -9,25 +9,12 @@ import { Cake, ChevronRight } from "lucide-react";
 import { format, addDays, getMonth, getDate, isWithinInterval } from "date-fns";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { parseBirthDate } from "@/lib/utils";
 
 interface PatientBirthday {
   id: string;
   name: string;
   birthDate: string | { toDate: () => Date };
-}
-
-function parseBirthDate(birthDate: PatientBirthday["birthDate"]): Date | null {
-  try {
-    if (typeof birthDate === "object" && birthDate.toDate) {
-      return birthDate.toDate();
-    }
-    if (typeof birthDate === "string") {
-      return new Date(birthDate + "T12:00:00");
-    }
-    return null;
-  } catch {
-    return null;
-  }
 }
 
 export default function BirthdayAlerts() {
@@ -66,6 +53,8 @@ export default function BirthdayAlerts() {
         });
 
       setUpcomingBirthdays(upcoming);
+    }, (error) => {
+      console.error("Erro ao carregar alertas de aniversário:", error);
     });
 
     return () => unsubscribe();

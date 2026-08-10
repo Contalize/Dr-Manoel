@@ -45,7 +45,6 @@ import {
   AlertCircle,
   Pill,
   Save,
-  Loader2,
   Printer,
   ChevronRight,
   Database,
@@ -86,6 +85,10 @@ import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAction } from "@/lib/audit";
+import { notifyError } from "@/lib/notify-error";
+import { LoadingState } from "@/components/LoadingState";
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { cn, formatFirestoreDate } from "@/lib/utils";
 import { NewPrescriptionDialog } from "@/components/prescriptions/NewPrescriptionDialog";
 import { PrescriptionPrintView } from "@/components/prescriptions/PrescriptionPrintView";
@@ -207,7 +210,7 @@ export function PatientDetailClient() {
           if (data.notes) setClinicalNotes(data.notes);
         }
       } catch (e) {
-        console.error("Erro ao buscar paciente:", e);
+        notifyError("buscar paciente", e);
       } finally {
         setIsLoading(false);
       }
@@ -215,40 +218,43 @@ export function PatientDetailClient() {
 
     const uid = user?.uid || "";
 
+    const notifyLoadError = (label: string, error: unknown) =>
+      notifyError(`carregar ${label}`, error, "Os dados exibidos podem estar incompletos.");
+
     const qEvol = query(collection(db, "evolutions"), where("patientId", "==", id), where("professionalId", "==", uid));
     const unsubEvol = onSnapshot(qEvol, (snap) => {
       const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Evolution));
       data.sort((a, b) => (b.date?.toMillis?.() || 0) - (a.date?.toMillis?.() || 0));
       setEvolutions(data);
-    });
+    }, (error) => notifyLoadError("evoluções", error));
 
     const qConsult = query(collection(db, "consultations"), where("patientId", "==", id), where("professionalId", "==", uid));
     const unsubConsult = onSnapshot(qConsult, (snap) => {
       const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Consultation));
       data.sort((a, b) => (b.date?.toMillis?.() || 0) - (a.date?.toMillis?.() || 0));
       setConsultations(data);
-    });
+    }, (error) => notifyLoadError("consultas", error));
 
     const qPresc = query(collection(db, "prescriptions"), where("patientId", "==", id), where("professionalId", "==", uid));
     const unsubPresc = onSnapshot(qPresc, (snap) => {
       const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Prescription));
       data.sort((a, b) => (b.date?.toMillis?.() || 0) - (a.date?.toMillis?.() || 0));
       setPrescriptions(data);
-    });
+    }, (error) => notifyLoadError("receitas", error));
 
     const qExams = query(collection(db, "exams"), where("patientId", "==", id), where("professionalId", "==", uid));
     const unsubExams = onSnapshot(qExams, (snap) => {
       const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Exam));
       data.sort((a, b) => (b.uploadedAt?.toMillis?.() || 0) - (a.uploadedAt?.toMillis?.() || 0));
       setExams(data);
-    });
+    }, (error) => notifyLoadError("exames", error));
 
     const qProtocols = query(collection(db, "protocols"), where("patientId", "==", id), where("professionalId", "==", uid));
     const unsubProtocols = onSnapshot(qProtocols, (snap) => {
       const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Protocol));
       data.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
       setProtocols(data);
-    });
+    }, (error) => notifyLoadError("protocolos", error));
 
     if (user) fetchPatient();
     return () => {
@@ -277,7 +283,7 @@ export function PatientDetailClient() {
       setEvolutionOpen(false);
       toast({ title: "Evolução Registrada" });
     } catch (e) {
-      toast({ title: "Erro ao Salvar", variant: "destructive" });
+      notifyError("salvar evolução", e);
     } finally {
       setIsSubmitting(false);
     }
@@ -357,8 +363,7 @@ export function PatientDetailClient() {
       toast({ title: "Exame enviado com sucesso", description: file.name });
 
     } catch (error) {
-      console.error(error);
-      toast({ title: "Erro no upload", description: "Não foi possível enviar o arquivo.", variant: "destructive" });
+      notifyError("fazer upload do arquivo", error, "Não foi possível enviar o arquivo.");
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -373,14 +378,14 @@ export function PatientDetailClient() {
       setPatient({ ...patient, notes: clinicalNotes });
       setNotesSaved(true);
       setTimeout(() => setNotesSaved(false), 2000);
-    } catch(e) {
-      toast({ title: "Erro ao salvar", variant: "destructive" });
+    } catch (e) {
+      notifyError("salvar anotações", e);
     } finally {
       setNotesSaving(false);
     }
   };
 
-  if (isLoading) return <div className="flex h-96 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  if (isLoading) return <LoadingState size="lg" className="h-96" />;
   if (!patient) return <div className="text-center py-20 font-bold text-red-500">Acesso negado.</div>;
 
   return (
@@ -436,6 +441,8 @@ export function PatientDetailClient() {
         </TabsList>
 
         <TabsContent value="consultations" className="space-y-6">
+          <ErrorBoundary title="Não foi possível carregar as consultas" description="Tente recarregar a página.">
+
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-bold text-primary font-headline">Histórico de Atendimentos</h2>
@@ -449,15 +456,15 @@ export function PatientDetailClient() {
           </div>
 
           {consultations.length === 0 ? (
-            <Card className="border-none shadow-md bg-white">
-              <CardContent className="py-12 text-center">
-                <Stethoscope className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">Nenhum atendimento SOAP registrado.</p>
+            <EmptyState
+              icon={Stethoscope}
+              message="Nenhum atendimento SOAP registrado."
+              action={
                 <Link href="/anamnesis" className="mt-4 inline-block">
                   <Button variant="outline" size="sm">Iniciar Primeiro Atendimento</Button>
                 </Link>
-              </CardContent>
-            </Card>
+              }
+            />
           ) : (
             consultations.map((consult) => (
               <Card key={consult.id} className="border-none shadow-md bg-white">
@@ -546,9 +553,11 @@ export function PatientDetailClient() {
               </Card>
             ))
           )}
+          </ErrorBoundary>
         </TabsContent>
 
         <TabsContent value="history" className="space-y-6">
+          <ErrorBoundary title="Não foi possível carregar o histórico" description="Tente recarregar a página.">
           {(() => {
             type EventType = "consultation" | "prescription" | "evolution" | "exam" | "protocol";
             type TimelineEvent = { id: string; date: any; type: EventType; data: any };
@@ -709,9 +718,11 @@ export function PatientDetailClient() {
               </div>
             );
           })()}
+          </ErrorBoundary>
         </TabsContent>
 
         <TabsContent value="evolution" className="space-y-6">
+          <ErrorBoundary title="Não foi possível carregar as evoluções" description="Tente recarregar a página.">
            <div className="flex justify-between items-center">
              <h2 className="text-xl font-bold font-headline">Evolução</h2>
              <Button onClick={() => setEvolutionOpen(true)} className="bg-primary text-white">Nova Evolução</Button>
@@ -727,6 +738,7 @@ export function PatientDetailClient() {
                </Card>
              ))}
            </div>
+          </ErrorBoundary>
         </TabsContent>
 
         {/* Modal Simples de Evolução */}
@@ -739,6 +751,7 @@ export function PatientDetailClient() {
         </Dialog>
 
         <TabsContent value="exams" className="space-y-6">
+          <ErrorBoundary title="Não foi possível carregar os exames" description="Tente recarregar a página.">
           {/* Cabeçalho */}
           <div className="flex items-center justify-between">
             <div>
@@ -804,12 +817,7 @@ export function PatientDetailClient() {
 
           {/* Listagem de exames */}
           {exams.length === 0 ? (
-            <Card className="border-none shadow-md bg-white">
-              <CardContent className="py-12 text-center">
-                <FileText className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">Nenhum exame cadastrado ainda.</p>
-              </CardContent>
-            </Card>
+            <EmptyState icon={FileText} message="Nenhum exame cadastrado ainda." />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {exams.map((exam) => (
@@ -844,16 +852,13 @@ export function PatientDetailClient() {
               ))}
             </div>
           )}
+          </ErrorBoundary>
         </TabsContent>
 
         <TabsContent value="prescriptions" className="space-y-6">
+          <ErrorBoundary title="Não foi possível carregar as receitas" description="Tente recarregar a página.">
           {prescriptions.length === 0 ? (
-            <Card className="border-none shadow-md bg-white">
-              <CardContent className="py-12 text-center">
-                <Pill className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">Nenhuma receita emitida ainda.</p>
-              </CardContent>
-            </Card>
+            <EmptyState icon={Pill} message="Nenhuma receita emitida ainda." />
           ) : (
             prescriptions.map(presc => (
               <Card key={presc.id} className="border-none shadow-md bg-white">
@@ -899,9 +904,11 @@ export function PatientDetailClient() {
               </Card>
             ))
           )}
+          </ErrorBoundary>
         </TabsContent>
 
         <TabsContent value="protocols" className="space-y-6">
+          <ErrorBoundary title="Não foi possível carregar os protocolos" description="Tente recarregar a página.">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-bold text-primary font-headline">Protocolos Integrativos</h2>
@@ -915,15 +922,15 @@ export function PatientDetailClient() {
           </div>
 
           {protocols.length === 0 ? (
-            <Card className="border-none shadow-md bg-white">
-              <CardContent className="py-12 text-center">
-                <FlaskConical className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">Nenhum protocolo criado ainda.</p>
+            <EmptyState
+              icon={FlaskConical}
+              message="Nenhum protocolo criado ainda."
+              action={
                 <Link href="/planner" className="mt-4 inline-block">
                   <Button variant="outline" size="sm">Criar Primeiro Protocolo</Button>
                 </Link>
-              </CardContent>
-            </Card>
+              }
+            />
           ) : (
             protocols.map((proto) => (
               <Card key={proto.id} className="border-none shadow-md bg-white">
@@ -975,6 +982,7 @@ export function PatientDetailClient() {
               </Card>
             ))
           )}
+          </ErrorBoundary>
         </TabsContent>
 
         <TabsContent value="summary" className="space-y-6">

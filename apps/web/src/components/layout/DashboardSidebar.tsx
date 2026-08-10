@@ -26,8 +26,9 @@ import {
 import { cn } from "@/lib/utils"
 import { auth, db } from "@/firebase/config"
 import { signOut } from "firebase/auth"
-import { collection, query, where, getDocs, limit, doc, getDoc, onSnapshot } from "firebase/firestore"
+import { collection, query, where, doc, getDoc, onSnapshot } from "firebase/firestore"
 import { useAuth } from "@/contexts/AuthContext"
+import { usePatientSearch } from "@/hooks/use-patient-search"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { getMonth, getDate, parseISO } from "date-fns"
@@ -65,62 +66,27 @@ export function DashboardSidebar() {
 
   // ── Busca Global ─────────────────────────────────────────────
   const [globalSearch, setGlobalSearch] = useState("")
-  const [searchResults, setSearchResults] = useState<Array<{ id: string; name: string; cpf: string }>>([])
-  const [isSearching, setIsSearching] = useState(false)
-  const [showResults, setShowResults] = useState(false)
+  const { results: searchResults, isSearching } = usePatientSearch(globalSearch, { maxResults: 6 })
+  const [dismissed, setDismissed] = useState(false)
+  const showResults = globalSearch.length >= 2 && !dismissed
   const searchRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setDismissed(false)
+  }, [globalSearch])
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setShowResults(false)
+        setDismissed(true)
       }
     }
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
-  useEffect(() => {
-    const search = async () => {
-      if (globalSearch.length < 2) {
-        setSearchResults([])
-        setShowResults(false)
-        return
-      }
-      setIsSearching(true)
-      try {
-        const q = query(
-          collection(db, "patients"),
-          where("professionalId", "==", user?.uid),
-          limit(100)
-        )
-        const snap = await getDocs(q)
-        const term = globalSearch.toLowerCase()
-        const allPatients = snap.docs.map(d => ({
-          id: d.id,
-          name: d.data().name as string,
-          cpf: d.data().cpf as string
-        }))
-        setSearchResults(
-          allPatients
-            .filter(p => p.name?.toLowerCase().includes(term) || p.cpf?.includes(term))
-            .slice(0, 6)
-        )
-        setShowResults(true)
-      } catch (e) {
-        console.error("Erro na busca global:", e)
-      } finally {
-        setIsSearching(false)
-      }
-    }
-    const timer = setTimeout(search, 300)
-    return () => clearTimeout(timer)
-  }, [globalSearch])
-
   const handleSelectPatient = (patientId: string) => {
     setGlobalSearch("")
-    setShowResults(false)
-    setSearchResults([])
     setOpen(false)
     router.push(`/patients/detail?id=${patientId}`)
   }
@@ -145,9 +111,13 @@ export function DashboardSidebar() {
         try {
           const bd = typeof birthDate === "string" ? parseISO(birthDate) : birthDate.toDate?.()
           if (bd && getMonth(bd) === todayM && getDate(bd) === todayD) count++
-        } catch {}
+        } catch {
+          console.warn("Data de nascimento inválida no paciente:", d.id)
+        }
       })
       setBirthdayTodayCount(count)
+    }, (error) => {
+      console.error("Erro ao contar aniversariantes de hoje:", error)
     })
     return () => unsub()
   }, [user?.uid])
@@ -166,7 +136,8 @@ export function DashboardSidebar() {
             setUserName(user.email?.split("@")[0] || "Usuário")
             setUserRole("Membro")
           }
-        } catch {
+        } catch (error) {
+          console.error("Erro ao carregar perfil do usuário:", error)
           setUserName(user.email?.split("@")[0] || "Usuário")
         }
       }
@@ -314,7 +285,7 @@ export function DashboardSidebar() {
           />
           {(globalSearch || isSearching) && (
             <button
-              onClick={() => { setGlobalSearch(""); setShowResults(false) }}
+              onClick={() => setGlobalSearch("")}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70"
             >
               {isSearching

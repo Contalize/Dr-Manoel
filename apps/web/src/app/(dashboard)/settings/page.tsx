@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { db, functions } from "@/firebase/config"
-import { httpsCallable } from "firebase/functions"
+import { db } from "@/firebase/config"
+import { sendWhatsappMessage } from "@/lib/whatsapp"
 import { 
   collection, 
   onSnapshot, 
@@ -59,6 +59,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
 import { logAction } from "@/lib/audit"
+import { notifyError } from "@/lib/notify-error"
 import { cn } from "@/lib/utils"
 
 interface Professional {
@@ -123,17 +124,23 @@ export default function SettingsPage() {
       if (snap.exists()) {
         setClinicData(snap.data() as ClinicSettings)
       }
+    }, (error) => {
+      notifyError("carregar dados da clínica", error)
     })
 
     const qProfs = query(collection(db, "professionals"))
     const unsubProfs = onSnapshot(qProfs, (snap) => {
       setProfessionals(snap.docs.map(d => ({ id: d.id, ...d.data() } as Professional)))
+    }, (error) => {
+      notifyError("carregar profissionais", error)
     })
 
     const unsubWa = onSnapshot(doc(db, "clinic_settings", "whatsapp"), (snap) => {
       if (snap.exists()) {
         setWaSettings(snap.data() as WhatsAppSettings)
       }
+    }, (error) => {
+      notifyError("carregar configurações de WhatsApp", error)
     })
 
     return () => {
@@ -152,8 +159,8 @@ export default function SettingsPage() {
       }, { merge: true })
       await logAction("ATUALIZAR_CONFIG_CLINICA", "SYSTEM")
       toast({ title: "Configurações Salvas", description: "Os dados da clínica foram atualizados com sucesso." })
-    } catch {
-      toast({ variant: "destructive", title: "Erro ao salvar" })
+    } catch (error) {
+      notifyError("salvar configurações da clínica", error)
     } finally {
       setIsSavingClinic(false)
     }
@@ -175,8 +182,8 @@ export default function SettingsPage() {
       toast({ title: "Profissional Cadastrado", description: `${newProf.name} agora faz parte do corpo clínico.` })
       setNewProf({ name: "", role: "", registration: "" })
       setIsDialogOpen(false)
-    } catch {
-      toast({ variant: "destructive", title: "Erro ao cadastrar" })
+    } catch (error) {
+      notifyError("cadastrar profissional", error)
     } finally {
       setIsAddingProfessional(false)
     }
@@ -191,8 +198,8 @@ export default function SettingsPage() {
       }, { merge: true })
       await logAction("ATUALIZAR_CONFIG_WHATSAPP", "SYSTEM")
       toast({ title: "Configurações WhatsApp salvas" })
-    } catch {
-      toast({ title: "Erro ao salvar", variant: "destructive" })
+    } catch (error) {
+      notifyError("salvar configurações de WhatsApp", error)
     } finally {
       setIsSavingWa(false)
     }
@@ -205,16 +212,15 @@ export default function SettingsPage() {
     }
     setIsTestingWa(true)
     try {
-      const sendWhatsappTest = httpsCallable(functions, "sendWhatsappTest")
-      await sendWhatsappTest({
-        phone: testPhone,
-        message: "✅ Dr. Manoel: conexão WhatsApp funcionando! Este é o seu lembrete automático de consultas.",
-        instanceId: waSettings.instanceId,
-        token: waSettings.token
-      })
+      // Usa as credenciais do formulário (podem ainda não estar salvas), não as persistidas
+      await sendWhatsappMessage(
+        testPhone,
+        "✅ Dr. Manoel: conexão WhatsApp funcionando! Este é o seu lembrete automático de consultas.",
+        { instanceId: waSettings.instanceId, token: waSettings.token }
+      )
       toast({ title: "Mensagem de teste enviada!", description: `Verifique o WhatsApp do número ${testPhone}` })
-    } catch {
-      toast({ title: "Erro ao enviar teste. Verifique as credenciais.", variant: "destructive" })
+    } catch (error) {
+      notifyError("enviar teste de WhatsApp", error, "Verifique as credenciais.")
     } finally {
       setIsTestingWa(false)
     }

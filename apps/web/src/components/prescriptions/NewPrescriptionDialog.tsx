@@ -50,6 +50,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { logAction } from "@/lib/audit"
+import { notifyError } from "@/lib/notify-error"
 import { useClinic } from "@/contexts/ClinicContext"
 import { useAuth } from "@/contexts/AuthContext"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
@@ -159,6 +160,7 @@ export function NewPrescriptionDialog({ initialPatientId, initialPatientName, tr
         const querySnapshot = await getDocs(q)
         setPatients(querySnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name, cpf: doc.data().cpf })))
       } catch (error) {
+        notifyError("carregar pacientes", error, "Tente fechar e abrir o formulário novamente.")
       } finally {
         setIsSearchingPatients(false)
       }
@@ -205,7 +207,7 @@ export function NewPrescriptionDialog({ initialPatientId, initialPatientName, tr
       if (isControlled && onClose) onClose()
       else setOpen(false)
     } catch (error) {
-      toast({ variant: "destructive", title: "Erro na Gravação", description: "Falha ao gravar receituário." })
+      notifyError("gravar receituário", error, "Falha ao gravar receituário.")
     } finally {
       setIsSubmitting(false)
     }

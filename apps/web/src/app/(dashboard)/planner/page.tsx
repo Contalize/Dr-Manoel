@@ -39,6 +39,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { logAction } from "@/lib/audit";
+import { notifyError } from "@/lib/notify-error";
+import { usePatientSearch } from "@/hooks/use-patient-search";
 import { BASE_MEDICAMENTOS, type MedicamentoReferencia } from "@/data/medicamentos";
 
 interface TerapiaSelecionada extends MedicamentoReferencia {
@@ -64,35 +66,8 @@ export default function PlannerPage() {
   }
 
   const [patientSearch, setPatientSearch] = useState("");
-  const [patientResults, setPatientResults] = useState<PatientOption[]>([]);
+  const { results: patientResults, isSearching: isSearchingPatient } = usePatientSearch(patientSearch, { minLength: 3, maxResults: 5 });
   const [selectedPatient, setSelectedPatient] = useState<PatientOption | null>(null);
-  const [isSearchingPatient, setIsSearchingPatient] = useState(false);
-
-  useEffect(() => {
-    const search = async () => {
-      if (patientSearch.length > 2 && user?.uid) {
-        setIsSearchingPatient(true);
-        const q = query(
-          collection(db, "patients"),
-          where("professionalId", "==", user.uid),
-          limit(100)
-        );
-        const snap = await getDocs(q);
-        const term = patientSearch.toLowerCase();
-        const allPatients = snap.docs.map(d => ({ id: d.id, name: d.data().name, cpf: d.data().cpf } as PatientOption));
-        setPatientResults(
-          allPatients
-            .filter(p => p.name?.toLowerCase().includes(term) || p.cpf?.includes(term))
-            .slice(0, 5)
-        );
-        setIsSearchingPatient(false);
-      } else {
-        setPatientResults([]);
-      }
-    };
-    const timer = setTimeout(search, 300);
-    return () => clearTimeout(timer);
-  }, [patientSearch]);
 
   const loadPatientContext = async (patient: PatientOption) => {
     try {
@@ -117,7 +92,7 @@ export default function PlannerPage() {
         }
       }
     } catch (error) {
-      console.error("Erro ao carregar contexto do paciente:", error);
+      notifyError("carregar contexto do paciente", error);
     }
   };
 
@@ -243,11 +218,7 @@ export default function PlannerPage() {
       setSelectedPatient(null);
 
     } catch (error) {
-      console.error(error);
-      toast({
-        title: "Erro ao salvar protocolo",
-        variant: "destructive"
-      });
+      notifyError("salvar protocolo", error);
     } finally {
       setIsSaving(false);
     }
@@ -292,7 +263,7 @@ export default function PlannerPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => { setSelectedPatient(null); setPatientSearch(""); setPatientResults([]); }}
+                      onClick={() => { setSelectedPatient(null); setPatientSearch(""); }}
                     >
                       Trocar
                     </Button>
@@ -317,7 +288,6 @@ export default function PlannerPage() {
                             onClick={() => {
                               setSelectedPatient(p);
                               setPatientSearch("");
-                              setPatientResults([]);
                               loadPatientContext(p);
                             }}
                           >

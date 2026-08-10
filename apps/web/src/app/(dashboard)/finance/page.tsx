@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { logAction } from "@/lib/audit";
+import { notifyError } from "@/lib/notify-error";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { 
   ArrowUpRight, 
@@ -131,7 +132,7 @@ export default function FinancePage() {
       setTxForm({ description: "", patientName: "", amount: "", type: "Receita", method: "Pix", status: "Paid" });
       setIsTransactionDialogOpen(false);
     } catch (error) {
-      toast({ title: "Erro ao registrar transação", variant: "destructive" });
+      notifyError("registrar transação", error);
     } finally {
       setIsSubmitting(false);
     }
@@ -143,8 +144,8 @@ export default function FinancePage() {
       await updateDoc(doc(db, "transactions", txId), { status: "Paid", method: "Confirmado" });
       await logAction("CONFIRMAR_PAGAMENTO", txId, {});
       toast({ title: "Pagamento confirmado" });
-    } catch {
-      toast({ title: "Erro ao confirmar pagamento", variant: "destructive" });
+    } catch (error) {
+      notifyError("confirmar pagamento", error);
     } finally {
       setConfirmingId(null);
     }
@@ -206,6 +207,8 @@ export default function FinancePage() {
       setStats(prev => ({ ...prev, revenueTrend }));
 
       setCashFlow(flow);
+    }, (error) => {
+      notifyError("carregar transações financeiras", error, "Tente recarregar a página.");
     });
     return () => unsubscribe();
   }, [user?.uid]);

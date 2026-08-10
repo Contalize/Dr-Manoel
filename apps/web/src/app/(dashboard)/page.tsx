@@ -13,6 +13,8 @@ import { NewPrescriptionDialog } from "@/components/prescriptions/NewPrescriptio
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import BirthdayAlerts from "@/components/BirthdayAlerts"
+import { ErrorBoundary } from "@/components/ErrorBoundary"
+import { notifyError } from "@/lib/notify-error"
 
 interface Appointment {
   id: string;
@@ -46,6 +48,8 @@ export default function DashboardPage() {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Appointment))
       data.sort((a, b) => a.time.localeCompare(b.time))
       setAppointments(data)
+    }, (error) => {
+      notifyError("carregar agenda de hoje", error)
     })
     return () => unsub()
   }, [user?.uid])
@@ -92,7 +96,7 @@ export default function DashboardPage() {
         setRecentPrescriptions(allRx.slice(0, 5))
 
       } catch (e) {
-        console.error("Dashboard error:", e)
+        notifyError("carregar o resumo do dia", e, "Alguns dados podem estar incompletos. Tente recarregar a página.")
       } finally {
         setIsLoading(false)
       }
@@ -138,7 +142,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <BirthdayAlerts />
+      <ErrorBoundary title="Não foi possível carregar os aniversariantes" description="O restante do painel continua funcionando normalmente.">
+        <BirthdayAlerts />
+      </ErrorBoundary>
 
       {/* Card: Próximo Atendimento */}
       {nextAppointment && (

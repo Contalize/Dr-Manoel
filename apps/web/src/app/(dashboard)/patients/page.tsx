@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react";
-import { db, auth, functions } from "@/firebase/config";
+import { db, auth } from "@/firebase/config";
 import {
   collection,
   onSnapshot,
@@ -13,11 +13,11 @@ import {
   where,
   limit,
   orderBy,
-  getDoc,
   serverTimestamp
 } from "firebase/firestore";
 import Link from "next/link";
 import BirthdayAlerts from "@/components/BirthdayAlerts";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Input } from "@/components/ui/input";
 import { 
   Table, 
@@ -66,8 +66,9 @@ import {
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn, formatFirestoreDate } from "@/lib/utils";
-import { httpsCallable } from "firebase/functions";
+import { sendWhatsappMessage } from "@/lib/whatsapp";
 import { logAction } from "@/lib/audit";
+import { notifyError } from "@/lib/notify-error";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { differenceInYears, parseISO } from "date-fns";
@@ -154,7 +155,7 @@ export default function PatientsPage() {
       setPatients(patientList);
       setIsInitialLoading(false);
     }, (error) => {
-      console.error("Erro ao carregar pacientes:", error);
+      notifyError("carregar pacientes", error);
       setIsInitialLoading(false);
     });
 
@@ -191,7 +192,7 @@ export default function PatientsPage() {
       await logAction("ARQUIVAR_PACIENTE", patientId, { nome: patientName });
       toast({ title: "Registro Arquivado", description: `${patientName} movido para inativos.` });
     } catch (error) {
-      toast({ variant: "destructive", title: "Erro ao Arquivar" });
+      notifyError("arquivar paciente", error);
     }
   };
 
@@ -201,19 +202,12 @@ export default function PatientsPage() {
       return;
     }
     try {
-      const waDoc = await getDoc(doc(db, "clinic_settings", "whatsapp"));
-      if (!waDoc.exists()) {
-        toast({ title: "WhatsApp não configurado. Acesse Configurações → WhatsApp.", variant: "destructive" });
-        return;
-      }
-      const wa = waDoc.data() as { instanceId: string; token: string };
       const message = `Olá, *${patient.name}*! 👋\n\nEquipe Dr. Manoel da Farmácia entrando em contato. Como podemos te ajudar? 💚`;
-      const sendWhatsappTest = httpsCallable(functions, "sendWhatsappTest");
-      await sendWhatsappTest({ phone: patient.phone, message, instanceId: wa.instanceId, token: wa.token });
+      await sendWhatsappMessage(patient.phone, message);
       await logAction("WHATSAPP_MENSAGEM_PACIENTE", patient.id, { nome: patient.name });
       toast({ title: `Mensagem enviada para ${patient.name}` });
-    } catch {
-      toast({ title: "Erro ao enviar WhatsApp", variant: "destructive" });
+    } catch (error) {
+      notifyError("enviar WhatsApp", error, error instanceof Error ? error.message : undefined);
     }
   };
 
@@ -265,8 +259,7 @@ export default function PatientsPage() {
       resetForm();
       toast({ title: "Sucesso", description: "Paciente salvo com sucesso." });
     } catch (error) {
-      console.error("Erro no savePatient:", error);
-      toast({ title: "Erro de Conexão", description: "Não foi possível salvar os dados na API.", variant: "destructive" });
+      notifyError("salvar paciente", error, "Não foi possível salvar os dados na API.");
     } finally {
       setIsSubmitting(false);
     }
@@ -381,7 +374,9 @@ export default function PatientsPage() {
         </div>
       </header>
 
-      <BirthdayAlerts />
+      <ErrorBoundary title="Não foi possível carregar os aniversariantes" description="O restante da página continua funcionando normalmente.">
+        <BirthdayAlerts />
+      </ErrorBoundary>
 
       <div className="flex flex-col sm:flex-row gap-2 justify-between items-center bg-white p-2 rounded-lg shadow-sm border border-slate-100">
         <div className="flex items-center gap-2 w-full sm:w-auto">

@@ -36,6 +36,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { logAction } from "@/lib/audit";
+import { notifyError } from "@/lib/notify-error";
+import { usePatientSearch } from "@/hooks/use-patient-search";
 import { NewPrescriptionDialog } from "@/components/prescriptions/NewPrescriptionDialog";
 
 interface Patient {
@@ -80,9 +82,8 @@ export default function AnamnesisPage() {
 
   // ── Step 1: Paciente ─────────────────────────────────────────
   const [searchTerm, setSearchTerm] = useState("");
-  const [patients, setPatients] = useState<Patient[]>([]);
+  const { results: patients, isSearching } = usePatientSearch(searchTerm, { minLength: 3, maxResults: 6, activeOnly: true });
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
 
   // ── Step 1: Queixa Principal ─────────────────────────────────
   const [complaint, setComplaint] = useState("");
@@ -160,49 +161,12 @@ export default function AnamnesisPage() {
           setSelectedPatient({ id: snap.id, name: d.name, cpf: d.cpf || "", birthDate: d.birthDate, gender: d.gender });
         }
       } catch (e) {
-        console.error("Erro ao carregar paciente da URL:", e);
+        notifyError("carregar paciente selecionado", e);
       }
     };
     loadUrlPatient();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlPatientId, urlPatientName]);
-
-  // Busca de pacientes com debounce (client-side filter para case-insensitivity)
-  useEffect(() => {
-    const search = async () => {
-      if (searchTerm.length > 2 && user?.uid) {
-        setIsSearching(true);
-        try {
-          const q = query(
-            collection(db, "patients"),
-            where("professionalId", "==", user.uid),
-            where("status", "==", "active"),
-            limit(100)
-          );
-          const snap = await getDocs(q);
-          const allPatients = snap.docs.map(d => ({
-            id: d.id,
-            name: d.data().name as string,
-            cpf: d.data().cpf as string,
-            birthDate: d.data().birthDate as string,
-            gender: d.data().gender as string,
-          }));
-          
-          const term = searchTerm.toLowerCase();
-          const filtered = allPatients.filter(p => p.name?.toLowerCase().includes(term) || p.cpf?.includes(term)).slice(0, 6);
-          setPatients(filtered);
-        } catch (error) {
-          console.error("Erro ao buscar pacientes", error);
-        } finally {
-          setIsSearching(false);
-        }
-      } else {
-        setPatients([]);
-      }
-    };
-    const timer = setTimeout(search, 300);
-    return () => clearTimeout(timer);
-  }, [searchTerm, user?.uid]);
 
   const addMedication = () => setCurrentMedications(prev => [...prev, { nome: "", dose: "", frequencia: "" }]);
   const removeMedication = (i: number) => setCurrentMedications(prev => prev.filter((_, idx) => idx !== i));
@@ -334,8 +298,7 @@ export default function AnamnesisPage() {
         router.push(`/patients/detail?id=${selectedPatient.id}`);
       }
     } catch (e) {
-      console.error("Erro ao salvar anamnese:", e);
-      toast({ title: "Erro ao Salvar", description: "Nenhum dado foi gravado. Tente novamente.", variant: "destructive" });
+      notifyError("salvar anamnese", e, "Nenhum dado foi gravado. Tente novamente.");
     } finally {
       setIsSubmitting(false);
     }
@@ -422,7 +385,7 @@ export default function AnamnesisPage() {
                   {patients.length > 0 && (
                     <div className="absolute z-50 w-full mt-1 bg-white border rounded-xl shadow-xl overflow-hidden">
                       {patients.map(p => (
-                        <button key={p.id} onClick={() => { setSelectedPatient(p); setSearchTerm(""); setPatients([]); }}
+                        <button key={p.id} onClick={() => { setSelectedPatient(p); setSearchTerm(""); }}
                           className="w-full text-left p-3 hover:bg-primary/5 border-b last:border-none flex flex-col">
                           <span className="font-bold text-sm">{p.name}</span>
                           <span className="text-[10px] text-muted-foreground">CPF: {p.cpf}</span>

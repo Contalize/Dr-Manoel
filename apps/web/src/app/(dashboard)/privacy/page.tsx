@@ -26,20 +26,22 @@ import {
 } from "@/components/ui/table";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { notifyError } from "@/lib/notify-error";
 
 export default function PrivacyPage() {
   const [logs, setLogs] = useState<any[]>([]);
-
   useEffect(() => {
     const q = query(collection(db, "audit_logs"), orderBy("timestamp", "desc"), limit(20));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setLogs(snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
-        formattedDate: doc.data().timestamp?.toDate() 
+        formattedDate: doc.data().timestamp?.toDate()
           ? format(doc.data().timestamp.toDate(), "dd/MM/yyyy HH:mm:ss", { locale: ptBR })
           : "Processando..."
       })));
+    }, (error) => {
+      notifyError("carregar logs de auditoria", error);
     });
     return () => unsubscribe();
   }, []);

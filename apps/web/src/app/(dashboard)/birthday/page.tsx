@@ -13,14 +13,16 @@ import {
   Cake, Phone, MessageCircle, Search, ChevronRight,
   PartyPopper, CalendarDays, Clock, Gift, Users
 } from "lucide-react"
-import { format, getMonth, getDate, differenceInYears, parseISO, addDays, isToday, isTomorrow } from "date-fns"
+import { format, getMonth, getDate, differenceInYears, addDays, isToday, isTomorrow } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import { cn } from "@/lib/utils"
+import { cn, parseBirthDate } from "@/lib/utils"
+import { EmptyState } from "@/components/EmptyState"
+import { useToast } from "@/hooks/use-toast"
 
 interface Patient {
   id: string
   name: string
-  birthDate: string
+  birthDate: unknown
   phone?: string
   chronoAge?: number
 }
@@ -32,6 +34,7 @@ const MONTHS_PT = [
 
 export default function BirthdayPage() {
   const { user } = useAuth()
+  const { toast } = useToast()
   const [patients, setPatients] = useState<Patient[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
@@ -48,9 +51,16 @@ export default function BirthdayPage() {
         .map(d => ({ id: d.id, ...d.data() } as Patient))
         .filter(p => !!p.birthDate)
       setPatients(list)
+    }, (error) => {
+      console.error("Erro ao carregar aniversariantes:", error)
+      toast({
+        variant: "destructive",
+        title: "Erro ao carregar aniversariantes",
+        description: "Não foi possível buscar a lista de pacientes. Tente recarregar a página.",
+      })
     })
     return () => unsub()
-  }, [user?.uid])
+  }, [user?.uid, toast])
 
   const today = new Date()
   const todayNorm = new Date(today.getFullYear(), today.getMonth(), today.getDate())
@@ -58,8 +68,7 @@ export default function BirthdayPage() {
   const enriched = useMemo(() => {
     return patients
       .map(p => {
-        let birthDate: Date | null = null
-        try { birthDate = typeof p.birthDate === "string" ? parseISO(p.birthDate) : null } catch { birthDate = null }
+        const birthDate = parseBirthDate(p.birthDate)
         if (!birthDate) return null
         const thisYear = new Date(today.getFullYear(), getMonth(birthDate), getDate(birthDate))
         const daysUntil = Math.round((thisYear.getTime() - todayNorm.getTime()) / 86400000)
@@ -200,14 +209,7 @@ export default function BirthdayPage() {
 
         {/* Lista do mês selecionado */}
         {byMonth.length === 0 ? (
-          <Card className="border-none shadow-sm">
-            <CardContent className="py-12 text-center">
-              <Cake className="h-10 w-10 text-slate-200 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">
-                Nenhum aniversariante em {MONTHS_PT[selectedMonth]}.
-              </p>
-            </CardContent>
-          </Card>
+          <EmptyState icon={Cake} message={`Nenhum aniversariante em ${MONTHS_PT[selectedMonth]}.`} />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {byMonth.map(p => (

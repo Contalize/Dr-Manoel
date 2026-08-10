@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { db } from '@/firebase/config';
 import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 interface ClinicData {
   name: string;
@@ -34,6 +35,7 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
   const [clinicData, setClinicData] = useState<ClinicData | null>(null);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
     // Escuta as configurações da clínica
@@ -41,6 +43,8 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
       if (snap.exists()) {
         setClinicData(snap.data() as ClinicData);
       }
+    }, (error) => {
+      console.error('Erro ao carregar configurações da clínica:', error);
     });
 
     // Escuta os profissionais ativos
@@ -49,13 +53,21 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
       const profList = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Professional));
       setProfessionals(profList);
       setIsLoading(false);
+    }, (error) => {
+      console.error('Erro ao carregar profissionais:', error);
+      setIsLoading(false);
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao carregar dados da clínica',
+        description: 'A lista de profissionais pode estar incompleta. Recarregue a página.',
+      });
     });
 
     return () => {
       unsubClinic();
       unsubProfs();
     };
-  }, []);
+  }, [toast]);
 
   return (
     <ClinicContext.Provider value={{ clinicData, professionals, isLoading }}>

@@ -2,8 +2,9 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react";
-import { auth, db, functions } from "@/firebase/config";
-import { httpsCallable } from "firebase/functions";
+import { auth, db } from "@/firebase/config";
+import { sendWhatsappMessage } from "@/lib/whatsapp";
+import { usePatientSearch } from "@/hooks/use-patient-search";
 import { collection, onSnapshot, query, where, limit, addDoc, serverTimestamp, updateDoc, doc, deleteDoc, getDoc, getDocs } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -11,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { logAction } from "@/lib/audit";
+import { notifyError } from "@/lib/notify-error";
+import { LoadingState } from "@/components/LoadingState";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -71,8 +74,7 @@ export default function CalendarPage() {
 
   // ── Busca de pacientes no dialog ─────────────────────────────
   const [patientSearch, setPatientSearch] = useState("");
-  const [patientResults, setPatientResults] = useState<Array<{ id: string; name: string; phone: string }>>([]);
-  const [isSearchingPatient, setIsSearchingPatient] = useState(false);
+  const { results: patientResults, isSearching: isSearchingPatient } = usePatientSearch(patientSearch, { maxResults: 6 });
   const [selectedPatient, setSelectedPatient] = useState<{ id: string; name: string } | null>(null);
   // ─────────────────────────────────────────────────────────────
 
@@ -93,42 +95,6 @@ export default function CalendarPage() {
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  // Busca de pacientes com debounce
-  useEffect(() => {
-    if (patientSearch.length < 2) {
-      setPatientResults([]);
-      return;
-    }
-    const timer = setTimeout(async () => {
-      if (!user?.uid) return;
-      setIsSearchingPatient(true);
-      try {
-        const q = query(
-          collection(db, "patients"),
-          where("professionalId", "==", user.uid),
-          limit(100)
-        );
-        const snap = await getDocs(q);
-        const term = patientSearch.toLowerCase();
-        const allPatients = snap.docs.map(d => ({
-          id: d.id,
-          name: d.data().name as string,
-          phone: (d.data().phone as string) || ""
-        }));
-        setPatientResults(
-          allPatients
-            .filter(p => p.name?.toLowerCase().includes(term))
-            .slice(0, 6)
-        );
-      } catch (e) {
-        console.error("Erro na busca de pacientes:", e);
-      } finally {
-        setIsSearchingPatient(false);
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [patientSearch, user?.uid]);
 
   const selectedDateStr = date ? format(date, "yyyy-MM-dd") : "";
 
@@ -153,7 +119,7 @@ export default function CalendarPage() {
       setAppointments(data);
       setIsLoading(false);
     }, (error) => {
-      console.error("Erro na busca da agenda:", error);
+      notifyError("carregar agenda do dia", error);
       setIsLoading(false);
     });
 
@@ -194,8 +160,7 @@ export default function CalendarPage() {
       setPatientSearch("");
       setIsDialogOpen(false);
     } catch (error) {
-      console.error(error);
-      toast({ title: "Erro ao criar agendamento", variant: "destructive" });
+      notifyError("criar agendamento", error);
     } finally {
       setIsCreating(false);
     }
@@ -207,7 +172,7 @@ export default function CalendarPage() {
       await logAction("ATUALIZAR_STATUS_AGENDAMENTO", appId, { status: newStatus });
       toast({ title: "Status atualizado" });
     } catch (error) {
-      toast({ title: "Erro ao atualizar status", variant: "destructive" });
+      notifyError("atualizar status do agendamento", error);
     }
   };
 
@@ -237,7 +202,7 @@ export default function CalendarPage() {
       });
       toast({ title: `Status atualizado → ${STATUS_LABELS[nextStatus]}` });
     } catch (error) {
-      toast({ title: "Erro ao atualizar status", variant: "destructive" });
+      notifyError("avançar status do agendamento", error);
     }
   };
 
@@ -247,7 +212,7 @@ export default function CalendarPage() {
       await logAction("MARCAR_FALTA_AGENDAMENTO", appointment.id, { paciente: appointment.patientName });
       toast({ title: `${appointment.patientName} marcado como faltou` });
     } catch (error) {
-      toast({ title: "Erro", variant: "destructive" });
+      notifyError("marcar falta", error);
     }
   };
 
@@ -258,7 +223,7 @@ export default function CalendarPage() {
       await logAction("EXCLUIR_AGENDAMENTO", appointmentId, { paciente: patientName });
       toast({ title: "Agendamento removido" });
     } catch (error) {
-      toast({ title: "Erro ao remover", variant: "destructive" });
+      notifyError("remover agendamento", error);
     } finally {
       setDeletingId(null);
     }
@@ -267,13 +232,6 @@ export default function CalendarPage() {
   const handleSendWhatsAppManual = async (appointment: Appointment) => {
     setSendingWhatsApp(appointment.id);
     try {
-      const waDoc = await getDoc(doc(db, "clinic_settings", "whatsapp"));
-      if (!waDoc.exists()) {
-        toast({ title: "WhatsApp não configurado. Acesse Configurações → WhatsApp.", variant: "destructive" });
-        return;
-      }
-      const wa = waDoc.data() as { instanceId: string; token: string };
-
       let phone = "";
       if (appointment.patientId) {
         const patDoc = await getDoc(doc(db, "patients", appointment.patientId));
@@ -288,13 +246,12 @@ export default function CalendarPage() {
       const formattedDate = format(parseISO(appointment.date), "dd/MM/yyyy", { locale: ptBR });
       const message = `Olá, *${appointment.patientName}*! 👋\n\nLembramos da sua consulta:\n\n📅 *${formattedDate}*\n⏰ *${appointment.time}*\n🏥 *Dr. Manoel da Farmácia*\n\nPara confirmar ou reagendar, responda esta mensagem. 💚`;
 
-      const sendWhatsappTest = httpsCallable(functions, "sendWhatsappTest");
-      await sendWhatsappTest({ phone, message, instanceId: wa.instanceId, token: wa.token });
+      await sendWhatsappMessage(phone, message);
 
       await logAction("WHATSAPP_LEMBRETE_MANUAL", appointment.id, { paciente: appointment.patientName });
       toast({ title: `Mensagem enviada para ${appointment.patientName}` });
-    } catch {
-      toast({ title: "Erro ao enviar WhatsApp", variant: "destructive" });
+    } catch (error) {
+      notifyError("enviar WhatsApp", error, error instanceof Error ? error.message : undefined);
     } finally {
       setSendingWhatsApp(null);
     }
@@ -315,7 +272,7 @@ export default function CalendarPage() {
       setIsEditDialogOpen(false);
       setEditingAppointment(null);
     } catch (error) {
-      toast({ title: "Erro ao salvar edição", variant: "destructive" });
+      notifyError("salvar edição do agendamento", error);
     } finally {
       setIsUpdating(false);
     }
@@ -354,11 +311,7 @@ export default function CalendarPage() {
   };
 
   if (!mounted) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <LoadingState size="lg" className="h-screen" />;
   }
 
   return (
@@ -418,7 +371,7 @@ export default function CalendarPage() {
                             <button
                               key={p.id}
                               type="button"
-                              onClick={() => { setSelectedPatient({ id: p.id, name: p.name }); setPatientSearch(""); setPatientResults([]); }}
+                              onClick={() => { setSelectedPatient({ id: p.id, name: p.name }); setPatientSearch(""); }}
                               className="w-full text-left px-4 py-3 hover:bg-primary/5 border-b border-slate-50 last:border-0 flex items-center gap-3"
                             >
                               <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
