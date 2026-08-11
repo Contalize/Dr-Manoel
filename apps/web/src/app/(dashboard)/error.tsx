@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 import { AlertTriangle, RotateCw, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { logAction } from "@/lib/audit";
@@ -37,9 +38,9 @@ export default function DashboardError({
           <RotateCw className="h-4 w-4" /> Tentar novamente
         </Button>
         <Button variant="outline" asChild className="gap-2">
-          <a href="/">
+          <Link href="/">
             <Home className="h-4 w-4" /> Voltar ao início
-          </a>
+          </Link>
         </Button>
       </div>
     </div>

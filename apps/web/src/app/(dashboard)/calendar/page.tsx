@@ -2,10 +2,10 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react";
-import { auth, db } from "@/firebase/config";
+import { db } from "@/firebase/config";
 import { sendWhatsappMessage } from "@/lib/whatsapp";
 import { usePatientSearch } from "@/hooks/use-patient-search";
-import { collection, onSnapshot, query, where, limit, addDoc, serverTimestamp, updateDoc, doc, deleteDoc, getDoc, getDocs } from "firebase/firestore";
+import { collection, onSnapshot, query, where, limit, addDoc, serverTimestamp, updateDoc, doc, deleteDoc, getDoc } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -163,16 +163,6 @@ export default function CalendarPage() {
       notifyError("criar agendamento", error);
     } finally {
       setIsCreating(false);
-    }
-  };
-
-  const handleUpdateStatus = async (appId: string, newStatus: string) => {
-    try {
-      await updateDoc(doc(db, "appointments", appId), { status: newStatus });
-      await logAction("ATUALIZAR_STATUS_AGENDAMENTO", appId, { status: newStatus });
-      toast({ title: "Status atualizado" });
-    } catch (error) {
-      notifyError("atualizar status do agendamento", error);
     }
   };
 
@@ -638,8 +628,8 @@ export default function CalendarPage() {
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center gap-2 flex-wrap">
                                         <span className="font-bold text-sm text-slate-800">{app.patientName}</span>
-                                        <Badge className={cn("text-[10px] border", getStatusConfig(app.status).color)}>
-                                          {getStatusConfig(app.status).label}
+                                        <Badge className={cn("text-[10px] border", status.color)}>
+                                          {status.label}
                                         </Badge>
                                       </div>
                                       <p className="text-xs text-muted-foreground mt-0.5">{app.time} · {app.type}</p>

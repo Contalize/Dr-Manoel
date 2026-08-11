@@ -5,12 +5,11 @@ import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { 
-  ShieldCheck, 
-  History, 
-  UserCheck, 
-  Lock, 
-  Eye, 
+import {
+  ShieldCheck,
+  History,
+  UserCheck,
+  Lock,
   FileText,
   AlertCircle
 } from "lucide-react";
@@ -28,8 +27,19 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { notifyError } from "@/lib/notify-error";
 
+interface AuditLog {
+  id: string;
+  userId: string;
+  userName: string;
+  action: string;
+  // Nem toda ação de auditoria envolve um paciente (ex: CLAIM_FIRST_ADMIN,
+  // ALTERAR_PERMISSAO_USUARIO) — esses logs de sistema não gravam patientId.
+  patientId?: string;
+  formattedDate: string;
+}
+
 export default function PrivacyPage() {
-  const [logs, setLogs] = useState<any[]>([]);
+  const [logs, setLogs] = useState<AuditLog[]>([]);
   useEffect(() => {
     const q = query(collection(db, "audit_logs"), orderBy("timestamp", "desc"), limit(20));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -39,7 +49,7 @@ export default function PrivacyPage() {
         formattedDate: doc.data().timestamp?.toDate()
           ? format(doc.data().timestamp.toDate(), "dd/MM/yyyy HH:mm:ss", { locale: ptBR })
           : "Processando..."
-      })));
+      } as AuditLog)));
     }, (error) => {
       notifyError("carregar logs de auditoria", error);
     });
@@ -153,7 +163,7 @@ export default function PrivacyPage() {
                         {log.formattedDate}
                       </TableCell>
                       <TableCell className="text-xs font-mono">
-                        {log.patientId === "N/A" ? "N/A" : log.patientId.substring(0, 8)}...
+                        {log.patientId && log.patientId !== "N/A" ? log.patientId.substring(0, 8) : "N/A"}...
                       </TableCell>
                     </TableRow>
                   ))

@@ -29,7 +29,7 @@ export default function LoginPage() {
         description: "Bem-vindo à plataforma clínica Manoel da Farmácia.",
       })
       router.push("/")
-    } catch (error: any) {
+    } catch {
       toast({
         variant: "destructive",
         title: "Erro de Autenticação",

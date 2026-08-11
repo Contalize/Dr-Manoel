@@ -357,7 +357,7 @@ export function NewPrescriptionDialog({ initialPatientId, initialPatientName, tr
                                                 <div className="p-4 text-center">
                                                   <p className="text-xs text-muted-foreground mb-3">Ausente na API.</p>
                                                   <Button type="button" size="sm" className="w-full text-[10px] bg-amber-100 text-amber-800 font-bold hover:bg-amber-200" onMouseDown={(e) => { e.preventDefault(); form.setValue(`medications.${index}.nome`, apiSearchTerm); setOpenMedicationIndex(null); }}>
-                                                    USAR TEXTO: "{apiSearchTerm}"
+                                                    USAR TEXTO: &quot;{apiSearchTerm}&quot;
                                                   </Button>
                                                 </div>
                                               )}

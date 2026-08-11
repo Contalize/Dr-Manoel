@@ -28,15 +28,14 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { 
-  Search, 
-  Eye, 
-  EyeOff, 
-  MoreHorizontal, 
-  Plus, 
-  ShieldCheck, 
+  Search,
+  Eye,
+  EyeOff,
+  MoreHorizontal,
+  Plus,
+  ShieldCheck,
   Loader2,
   ArrowRightLeft,
-  User,
   Pencil,
   Archive,
   UserCircle,
@@ -72,23 +71,8 @@ import { notifyError } from "@/lib/notify-error";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { differenceInYears, parseISO } from "date-fns";
-import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-
-interface Patient {
-  id: string;
-  name: string;
-  email: string;
-  cpf: string;
-  phone: string;
-  birthDate: string;
-  chronoAge: number;
-  bioAge: number;
-  gender: string;
-  lastConsultation: unknown;
-  lgpdConsent?: boolean;
-  status: 'active' | 'inactive';
-}
+import type { Patient } from "@/lib/types";
 
 export default function PatientsPage() {
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -119,7 +103,7 @@ export default function PatientsPage() {
     if (!formData.birthDate) return 0;
     try {
       return differenceInYears(new Date(), parseISO(formData.birthDate));
-    } catch (e) {
+    } catch {
       return 0;
     }
   }, [formData.birthDate]);
@@ -128,6 +112,12 @@ export default function PatientsPage() {
     if (chronoAgeCalculated > 0 && !formData.bioAge) {
       setFormData(prev => ({ ...prev, bioAge: chronoAgeCalculated.toString() }));
     }
+    // Propositalmente sem formData.bioAge nas deps: isto é um preenchimento
+    // automático de UMA VEZ quando a idade cronológica fica disponível. Se
+    // bioAge entrasse nas deps, limpar o campo para digitar um valor novo
+    // reacionaria este efeito (bioAge === "" de novo) e o valor voltaria a
+    // ser sobrescrito antes do usuário conseguir digitar outra coisa.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chronoAgeCalculated]);
 
   useEffect(() => {
@@ -160,6 +150,10 @@ export default function PatientsPage() {
     });
 
     return () => unsubscribe();
+    // Depende só de user?.uid (não do objeto `user` inteiro) para não recriar a
+    // subscription do Firestore a cada refresh de token, que troca a referência
+    // do objeto sem mudar o uid.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, user?.uid]);
 
   const handleRevealSensitive = async () => {
@@ -227,7 +221,7 @@ export default function PatientsPage() {
         throw new Error("Usuário precisa estar autenticado para gerenciar pacientes.");
       }
 
-      const finalBioAge = Number(formData.bioAge) || chronoAgeCalculated;
+      const finalBioAge = formData.bioAge === "" ? chronoAgeCalculated : Number(formData.bioAge);
 
       const patientData = {
         name: formData.name,

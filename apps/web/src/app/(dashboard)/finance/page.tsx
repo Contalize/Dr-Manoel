@@ -13,24 +13,22 @@ import { logAction } from "@/lib/audit";
 import { notifyError } from "@/lib/notify-error";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { 
-  ArrowUpRight, 
-  CreditCard, 
+  ArrowUpRight,
+  CreditCard,
   CircleDollarSign,
   Download,
   PlusCircle,
-  Loader2,
-  Plus
+  Loader2
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  Cell
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer
 } from "recharts";
 import { Button } from "@/components/ui/button";
 import { 

@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import { db } from "@/firebase/config"
 import { collection, onSnapshot, query, where } from "firebase/firestore"
 import { useAuth } from "@/contexts/AuthContext"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,8 +13,7 @@ import {
   Cake, Phone, MessageCircle, Search, ChevronRight,
   PartyPopper, CalendarDays, Clock, Gift, Users
 } from "lucide-react"
-import { format, getMonth, getDate, differenceInYears, addDays, isToday, isTomorrow } from "date-fns"
-import { ptBR } from "date-fns/locale"
+import { format, getMonth, getDate, differenceInYears } from "date-fns"
 import { cn, parseBirthDate } from "@/lib/utils"
 import { EmptyState } from "@/components/EmptyState"
 import { useToast } from "@/hooks/use-toast"
@@ -62,10 +61,9 @@ export default function BirthdayPage() {
     return () => unsub()
   }, [user?.uid, toast])
 
-  const today = new Date()
-  const todayNorm = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-
   const enriched = useMemo(() => {
+    const today = new Date()
+    const todayNorm = new Date(today.getFullYear(), today.getMonth(), today.getDate())
     return patients
       .map(p => {
         const birthDate = parseBirthDate(p.birthDate)

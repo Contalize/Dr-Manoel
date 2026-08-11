@@ -6,7 +6,7 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
  * Registra uma ação sensível na trilha de auditoria para conformidade LGPD e RDC/ANVISA.
  * Assegura que cada interação com dados de saúde seja rastreada.
  */
-export async function logAction(action: string, patientId: string, metadata: any = {}) {
+export async function logAction(action: string, patientId: string, metadata: Record<string, unknown> = {}) {
   try {
     // SECURITY: Await auth state to resolve race condition where currentUser is null
     // immediately on load. Ensure user exists before logging to avoid non-repudiation issues.

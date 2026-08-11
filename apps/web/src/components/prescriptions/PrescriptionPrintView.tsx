@@ -3,13 +3,7 @@
 import { useEffect } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-
-interface Medication {
-  nome: string;
-  posologia: string;
-  via: string;
-  orientacoes?: string;
-}
+import type { Medication } from "@/lib/types";
 
 interface PrescriptionPrintViewProps {
   isOpen: boolean;
@@ -202,7 +196,7 @@ export function PrescriptionPrintView({
           {medications.map((med, index) => (
             <div key={index} style={{ marginBottom: "18px", paddingLeft: "12px", borderLeft: "3px solid #2D5A27" }}>
               <p style={{ fontSize: "14px", fontWeight: "bold", margin: "0 0 3px" }}>
-                {index + 1}. {med.nome}
+                {index + 1}. {med.nome || med.composicao || "Medicação"}
               </p>
               <p style={{ fontSize: "13px", margin: "0 0 2px", color: "#333" }}>
                 <strong>Via:</strong> {med.via} &nbsp;·&nbsp; <strong>Posologia:</strong> {med.posologia}

@@ -19,9 +19,7 @@ import {
   X,
   Loader2,
   PlusCircle,
-  Home,
-  Cake,
-  ChevronRight
+  Cake
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { auth, db } from "@/firebase/config"

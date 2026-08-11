@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react"
 import { db } from "@/firebase/config"
-import { collection, query, where, getDocs, doc, getDoc, onSnapshot } from "firebase/firestore"
+import { collection, query, where, getDocs, doc, getDoc, onSnapshot, Timestamp } from "firebase/firestore"
 import { useAuth } from "@/contexts/AuthContext"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -26,13 +26,21 @@ interface Appointment {
   type: string;
 }
 
+interface RecentPrescription {
+  id: string;
+  patientId?: string;
+  patientName: string;
+  date?: Timestamp;
+  medications?: unknown[];
+}
+
 export default function DashboardPage() {
   const { user } = useAuth()
   const [userName, setUserName] = useState("Profissional")
   const [isLoading, setIsLoading] = useState(true)
   
   const [todayConsultations, setTodayConsultations] = useState(0)
-  const [recentPrescriptions, setRecentPrescriptions] = useState<any[]>([])
+  const [recentPrescriptions, setRecentPrescriptions] = useState<RecentPrescription[]>([])
   const [appointments, setAppointments] = useState<Appointment[]>([])
 
   // Subscrição em tempo real dos agendamentos de hoje
@@ -86,9 +94,9 @@ export default function DashboardPage() {
 
         const rxQ = query(collection(db, "prescriptions"), where("professionalId", "==", user.uid))
         const rxSnap = await getDocs(rxQ)
-        const allRx = rxSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+        const allRx = rxSnap.docs.map(d => ({ id: d.id, ...d.data() } as RecentPrescription))
         // Ordenação manual em JS para evitar erro de índice composto pendente no Firestore
-        allRx.sort((a: any, b: any) => {
+        allRx.sort((a, b) => {
           const dA = a.date?.toDate()?.getTime() || 0;
           const dB = b.date?.toDate()?.getTime() || 0;
           return dB - dA;

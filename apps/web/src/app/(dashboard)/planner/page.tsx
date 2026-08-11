@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { db, auth } from "@/firebase/config";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -19,9 +19,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
 import {
-  Plus,
-  Trash2, 
-  Save, 
+  Trash2,
+  Save,
   CheckCircle2, 
   FlaskConical, 
   Leaf, 
@@ -278,6 +277,7 @@ export default function PlannerPage() {
                         onChange={(e) => setPatientSearch(e.target.value)}
                         className="pl-9 bg-secondary/20 border-none h-12 text-sm"
                       />
+                      {isSearchingPatient && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-primary" />}
                     </div>
                     {patientResults.length > 0 && (
                       <div className="absolute z-10 w-full mt-1 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden">
@@ -414,7 +414,7 @@ export default function PlannerPage() {
                           <div className="p-3 bg-red-100/50 rounded-lg border border-red-200 flex gap-2">
                             <AlertTriangle className="h-4 w-4 text-red-700 shrink-0" />
                             <p className="text-xs text-red-800 font-bold">
-                              ALERTA: Contraindicado para pacientes com histórico de "{alert}".
+                              ALERTA: Contraindicado para pacientes com histórico de &quot;{alert}&quot;.
                             </p>
                           </div>
                         )}

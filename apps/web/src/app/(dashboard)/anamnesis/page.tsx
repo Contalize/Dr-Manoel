@@ -6,17 +6,13 @@ import {
   collection,
   writeBatch,
   serverTimestamp,
-  query,
-  getDocs,
-  where,
-  limit,
   doc,
   getDoc
 } from "firebase/firestore";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,7 +20,7 @@ import {
   Stethoscope, Activity, Save, ArrowRight, ArrowLeft, CheckCircle2,
   Plus, Trash2, Pill, Droplets, Search, User, Loader2, ClipboardList,
   CircleDollarSign, Heart, Brain, Leaf, FlaskConical, AlertTriangle,
-  ThermometerSun, Scale, Ruler, Wind, Percent, Clock, BookOpen
+  ThermometerSun, Scale, Ruler, Wind, Percent, BookOpen
 } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -37,16 +33,13 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { logAction } from "@/lib/audit";
 import { notifyError } from "@/lib/notify-error";
-import { usePatientSearch } from "@/hooks/use-patient-search";
+import { usePatientSearch, type PatientSearchResult } from "@/hooks/use-patient-search";
 import { NewPrescriptionDialog } from "@/components/prescriptions/NewPrescriptionDialog";
 
-interface Patient {
-  id: string;
-  name: string;
-  cpf: string;
-  birthDate?: string;
-  gender?: string;
-}
+// Reaproveita o mesmo shape retornado por usePatientSearch (e usado para
+// pré-selecionar o paciente vindo da URL) em vez de manter uma 3ª definição
+// de "Patient" divergente da de @/lib/types.
+type Patient = PatientSearchResult;
 
 interface Medication {
   nome: string;
@@ -148,6 +141,15 @@ export default function AnamnesisPage() {
   const totalSteps = 5;
   const progress = (step / totalSteps) * 100;
 
+  // Marcador visual de completude por step: sinaliza passos já visitados sem dado essencial preenchido.
+  const stepHasData = useMemo(() => [
+    !!selectedPatient && !!complaint,
+    true,
+    !!bp || !!hr || !!weight,
+    procedures.length > 0,
+    true,
+  ], [selectedPatient, complaint, bp, hr, weight, procedures]);
+
   // Pré-seleção via URL (fluxo Agenda → Iniciar Atendimento)
   useEffect(() => {
     if (!urlPatientId || !urlPatientName) return;
@@ -165,7 +167,6 @@ export default function AnamnesisPage() {
       }
     };
     loadUrlPatient();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlPatientId, urlPatientName]);
 
   const addMedication = () => setCurrentMedications(prev => [...prev, { nome: "", dose: "", frequencia: "" }]);
@@ -304,15 +305,6 @@ export default function AnamnesisPage() {
     }
   };
 
-  // Marcador visual de completude por step
-  const stepHasData = [
-    !!selectedPatient && !!complaint,
-    true,
-    !!bp || !!hr || !!weight,
-    procedures.length > 0,
-    true,
-  ];
-
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-20">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -335,14 +327,17 @@ export default function AnamnesisPage() {
       <div className="flex items-center gap-1 overflow-x-auto pb-2">
         {STEP_TITLES.map((title, i) => {
           const stepNum = i + 1;
+          const visited = stepNum < step;
+          const incomplete = visited && !stepHasData[i];
           return (
             <div key={stepNum} className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap cursor-default",
               step === stepNum ? "bg-primary text-white shadow-md" :
-              stepNum < step ? "bg-emerald-100 text-emerald-700" :
+              incomplete ? "bg-amber-100 text-amber-700" :
+              visited ? "bg-emerald-100 text-emerald-700" :
               "bg-slate-100 text-slate-400"
             )}>
-              {stepNum < step ? <CheckCircle2 className="h-3 w-3" /> : <span>{stepNum}</span>}
+              {incomplete ? <AlertTriangle className="h-3 w-3" /> : visited ? <CheckCircle2 className="h-3 w-3" /> : <span>{stepNum}</span>}
               {title}
             </div>
           );

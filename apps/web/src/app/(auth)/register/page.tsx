@@ -59,7 +59,7 @@ export default function RegisterPage() {
           ...commonData,
           ...specificData
         })
-      } catch (profileError) {
+      } catch {
         // Sem o perfil no Firestore o login fica "quebrado" (sem nome/CRF/tipo).
         // Melhor desfazer a conta de Auth e deixar o usuário tentar de novo do zero.
         try { await user.delete() } catch { /* rollback best-effort */ }
@@ -71,11 +71,11 @@ export default function RegisterPage() {
         description: "Bem-vindo à plataforma Dr. Manoel.",
       })
       router.push("/")
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Erro no Cadastro",
-        description: error.message || "Verifique os dados informados.",
+        description: error instanceof Error ? error.message : "Verifique os dados informados.",
       })
     } finally {
       setIsLoading(false)

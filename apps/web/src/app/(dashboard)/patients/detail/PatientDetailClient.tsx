@@ -3,83 +3,54 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { db, auth, storage } from "@/firebase/config";
-import { 
-  doc, 
-  getDoc, 
-  collection, 
-  onSnapshot, 
-  query, 
-  where, 
-  addDoc, 
+import {
+  doc,
+  getDoc,
+  collection,
+  onSnapshot,
+  query,
+  where,
+  addDoc,
   updateDoc,
-  serverTimestamp 
+  serverTimestamp,
+  Timestamp
 } from "firebase/firestore";
 import Link from "next/link";
-import { 
-  Card, 
-  CardHeader, 
-  CardTitle, 
-  CardContent, 
-  CardDescription,
-  CardFooter
-} from "@/components/ui/card";
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent
+} from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  User, 
-  Calendar, 
-  History as HistoryIcon, 
-  FileText, 
-  Plus, 
-  ClipboardCheck, 
-  Clock, 
+import {
+  Calendar,
+  History as HistoryIcon,
+  FileText,
+  Plus,
+  Clock,
   Stethoscope,
-  Droplets,
-  AlertCircle,
   Pill,
-  Save,
   Printer,
-  ChevronRight,
-  Database,
-  FilePlus,
-  UploadCloud,
-  ClipboardList,
   FlaskConical,
-  Mail,
   Phone,
-  Cake,
   Activity,
   Upload,
-  Image,
-  ExternalLink,
-  Trash2
+  Image as ImageIcon,
+  ExternalLink
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger 
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
 } from "@/components/ui/dialog";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -94,30 +65,42 @@ import { NewPrescriptionDialog } from "@/components/prescriptions/NewPrescriptio
 import { PrescriptionPrintView } from "@/components/prescriptions/PrescriptionPrintView";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { useRef } from "react";
+import type { Patient, Medication } from "@/lib/types";
 
 interface Evolution {
   id: string;
   type: string;
   description: string;
-  date: any;
+  date: Timestamp;
   professionalName: string;
 }
 
 interface Prescription {
   id: string;
-  date: any;
-  medications: any[];
+  date: Timestamp;
+  medications: Medication[];
   notes: string;
   professionalName?: string;
 }
 
 interface Consultation {
   id: string;
-  date: any;
+  date: Timestamp;
   professionalName: string;
   soap: {
-    subjective: { complaint: string; painIntensity: number; stressLevel: number };
-    objective: { vitalSigns: { bp: string; hr: string; weight: string }; physicalExam: string };
+    subjective: {
+      complaint: string;
+      painIntensity: number;
+      stressLevel: number;
+      duration?: string;
+      allergies?: string[];
+    };
+    objective: {
+      vitalSigns: { bp: string; hr: string; weight: string; bmi?: string; spo2?: string };
+      physicalExam: string;
+    };
+    assessment?: { hypotheses?: string; cid10?: string };
+    plan?: { conduct?: string };
   };
   procedures: Array<{ type: string; description: string; obs: string }>;
   prescriptions: Array<{ med: string; dose: string; route: string; freq: string; duration: string }>;
@@ -131,7 +114,7 @@ interface Exam {
   fileType: string; // 'pdf' | 'image'
   fileSize: number; // em bytes
   storageUrl: string;
-  uploadedAt: any; // Firestore Timestamp
+  uploadedAt: Timestamp;
   uploadedBy: string;
   description: string;
 }
@@ -141,7 +124,7 @@ interface Protocol {
   protocolName: string;
   therapies: Array<{ nome: string; posologia: string; categoria: string }>;
   clinicalJustification?: string;
-  createdAt: any;
+  createdAt: Timestamp;
   createdBy: string;
   status: string;
 }
@@ -150,9 +133,9 @@ export function PatientDetailClient() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
-  const [patient, setPatient] = useState<any>(null);
+  const [patient, setPatient] = useState<Patient | null>(null);
   const [evolutions, setEvolutions] = useState<Evolution[]>([]);
-  const [consultations, setConsultations] = useState<any[]>([]);
+  const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [exams, setExams] = useState<Exam[]>([]);
   const [protocols, setProtocols] = useState<Protocol[]>([]);
@@ -170,8 +153,6 @@ export function PatientDetailClient() {
 
   // Estados para Dossiê
   const [activeTab, setActiveTab] = useState("history");
-  const [addingMed, setAddingMed] = useState(false);
-  const [newMed, setNewMed] = useState("");
   const [clinicalNotes, setClinicalNotes] = useState("");
   const [notesSaving, setNotesSaving] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
@@ -206,7 +187,7 @@ export function PatientDetailClient() {
              setPatient(null);
              return;
           }
-          setPatient({ id: snap.id, ...data });
+          setPatient({ id: snap.id, ...data } as Patient);
           if (data.notes) setClinicalNotes(data.notes);
         }
       } catch (e) {
@@ -526,7 +507,7 @@ export function PatientDetailClient() {
                   {(consult.soap?.subjective?.allergies?.length ?? 0) > 0 && (
                     <div className="flex flex-wrap gap-1">
                       <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest w-full mb-1">⚠ Alergias</p>
-                      {consult.soap.subjective.allergies.map((a: string, i: number) => (
+                      {consult.soap.subjective.allergies?.map((a, i) => (
                         <span key={i} className="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-md">{a}</span>
                       ))}
                     </div>
@@ -543,7 +524,7 @@ export function PatientDetailClient() {
                     <div>
                       <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">Procedimentos ({consult.procedures.length})</p>
                       <div className="space-y-1">
-                        {consult.procedures.map((proc: any, i: number) => (
+                        {consult.procedures.map((proc, i) => (
                           <p key={i} className="text-xs text-slate-600">• <strong>{proc.type}:</strong> {proc.description}</p>
                         ))}
                       </div>
@@ -560,7 +541,12 @@ export function PatientDetailClient() {
           <ErrorBoundary title="Não foi possível carregar o histórico" description="Tente recarregar a página.">
           {(() => {
             type EventType = "consultation" | "prescription" | "evolution" | "exam" | "protocol";
-            type TimelineEvent = { id: string; date: any; type: EventType; data: any };
+            type TimelineEvent =
+              | { id: string; date: Timestamp; type: "consultation"; data: Consultation }
+              | { id: string; date: Timestamp; type: "prescription"; data: Prescription }
+              | { id: string; date: Timestamp; type: "evolution"; data: Evolution }
+              | { id: string; date: Timestamp; type: "exam"; data: Exam }
+              | { id: string; date: Timestamp; type: "protocol"; data: Protocol };
 
             const events: TimelineEvent[] = [
               ...consultations.map(c => ({ id: c.id, date: c.date, type: "consultation" as const, data: c })),
@@ -659,10 +645,10 @@ export function PatientDetailClient() {
 
                             {event.type === "prescription" && (
                               <div className="mt-2 space-y-1">
-                                {event.data.medications?.slice(0, 3).map((med: any, i: number) => (
+                                {event.data.medications?.slice(0, 3).map((med, i) => (
                                   <p key={i} className="text-xs text-slate-700">
                                     <Pill className="h-3 w-3 inline mr-1 text-accent" />
-                                    {med.nome || med.name || String(med)}
+                                    {med.nome || med.composicao || "Medicação"}
                                   </p>
                                 ))}
                                 {(event.data.medications?.length || 0) > 3 && (
@@ -746,7 +732,7 @@ export function PatientDetailClient() {
            <DialogContent>
              <DialogHeader><DialogTitle>Nova Evolução</DialogTitle></DialogHeader>
              <Textarea value={newEvolution.description} onChange={e => setNewEvolution({...newEvolution, description: e.target.value})} />
-             <DialogFooter><Button onClick={handleAddEvolution}>Salvar</Button></DialogFooter>
+             <DialogFooter><Button onClick={handleAddEvolution} disabled={isSubmitting}>{isSubmitting ? "Salvando..." : "Salvar"}</Button></DialogFooter>
            </DialogContent>
         </Dialog>
 
@@ -827,7 +813,7 @@ export function PatientDetailClient() {
                       "p-3 rounded-xl flex-shrink-0",
                       exam.fileType === 'pdf' ? "bg-red-50 text-red-500" : "bg-blue-50 text-blue-500"
                     )}>
-                      {exam.fileType === 'pdf' ? <FileText className="h-5 w-5" /> : <Image className="h-5 w-5" />}
+                      {exam.fileType === 'pdf' ? <FileText className="h-5 w-5" /> : <ImageIcon className="h-5 w-5" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-slate-800 truncate">{exam.description}</p>
@@ -887,10 +873,10 @@ export function PatientDetailClient() {
                 <CardContent className="pt-3">
                   {presc.medications?.length > 0 ? (
                     <div className="space-y-2">
-                      {presc.medications.map((med: any, i: number) => (
+                      {presc.medications.map((med, i) => (
                         <div key={i} className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">
                           <Pill className="h-3 w-3 text-accent flex-shrink-0" />
-                          <span className="text-xs font-medium text-slate-700">{med.nome || med.name || String(med)}</span>
+                          <span className="text-xs font-medium text-slate-700">{med.nome || med.composicao || "Medicação"}</span>
                         </div>
                       ))}
                     </div>
@@ -994,7 +980,8 @@ export function PatientDetailClient() {
                onBlur={handleSaveNotes}
                className="min-h-[200px]"
              />
-             {notesSaved && <span className="text-emerald-600 text-xs">Salvo!</span>}
+             {notesSaving && <span className="text-muted-foreground text-xs">Salvando...</span>}
+             {!notesSaving && notesSaved && <span className="text-emerald-600 text-xs">Salvo!</span>}
            </Card>
         </TabsContent>
       </Tabs>
