@@ -1,4 +1,7 @@
-const CACHE_NAME = "dr-manoel-v1";
+// Bump esta string a cada deploy que precise invalidar o cache de quem já
+// tem o app instalado — o activate handler abaixo só limpa caches com nome
+// diferente do atual, então sem isso ele nunca tem o que limpar.
+const CACHE_NAME = "dr-manoel-v2";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
