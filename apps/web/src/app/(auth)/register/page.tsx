@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { auth, db } from "@/firebase/config"
-import { createUserWithEmailAndPassword } from "firebase/auth"
+import { createUserWithEmailAndPassword, AuthError } from "firebase/auth"
 import { setDoc, doc, serverTimestamp } from "firebase/firestore"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -13,6 +13,23 @@ import { Label } from "@/components/ui/label"
 import { Leaf, ShieldCheck, Loader2, User, Building } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+
+function authErrorMessage(error: unknown): string {
+  const code = (error as AuthError)?.code
+  switch (code) {
+    case "auth/email-already-in-use":
+      return "Esse e-mail já tem uma conta cadastrada. Faça login em vez de criar uma nova."
+    case "auth/weak-password":
+      return "Senha muito fraca — use pelo menos 6 caracteres."
+    case "auth/invalid-email":
+      return "E-mail inválido. Confira e tente novamente."
+  }
+  // Erros lançados pelo próprio app (ex: falha ao salvar o perfil) já vêm
+  // com mensagem legível — só os erros do Firebase Auth (acima) precisam
+  // de tradução, o resto do SDK não expõe .code nesse formato.
+  if (error instanceof Error && !code) return error.message
+  return "Verifique os dados informados e tente novamente."
+}
 
 export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false)
@@ -75,7 +92,7 @@ export default function RegisterPage() {
       toast({
         variant: "destructive",
         title: "Erro no Cadastro",
-        description: error instanceof Error ? error.message : "Verifique os dados informados.",
+        description: authErrorMessage(error),
       })
     } finally {
       setIsLoading(false)
