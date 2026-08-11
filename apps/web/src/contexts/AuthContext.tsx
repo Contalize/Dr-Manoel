@@ -51,7 +51,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setRoleLoading(false);
     });
     return () => unsubscribe();
-  }, [user]);
+    // Depende só de user?.uid (não do objeto `user` inteiro), que troca de
+    // referência a cada refresh de token do Firebase Auth sem o uid mudar —
+    // sem isso, essa subscription do Firestore reinicia sozinha o tempo todo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid]);
 
   return (
     <AuthContext.Provider value={{ user, loading, role, roleLoading }}>
