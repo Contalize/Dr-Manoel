@@ -24,13 +24,13 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from "@/components/ui/table"
 import {
   Dialog,
@@ -41,15 +41,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { 
   Building2, 
   Users, 
   Save, 
   Plus, 
   ShieldCheck, 
-  Phone, 
-  Mail, 
-  MapPin, 
+  Phone,
+  MapPin,
   FileText,
   Loader2,
   Image as ImageIcon,
@@ -61,6 +61,15 @@ import { Badge } from "@/components/ui/badge"
 import { logAction } from "@/lib/audit"
 import { notifyError } from "@/lib/notify-error"
 import { cn } from "@/lib/utils"
+import { useAuth, type UserRole } from "@/contexts/AuthContext"
+import { claimFirstAdmin, listUsersForAdmin, setUserRole as setUserRoleApi, type ManagedUser } from "@/lib/roles"
+
+const ROLE_LABELS: Record<UserRole, string> = {
+  admin: "Administrador",
+  medico: "Médico",
+  farmaceutico: "Farmacêutico",
+  recepcionista: "Recepcionista",
+}
 
 interface Professional {
   id: string
@@ -89,6 +98,11 @@ interface WhatsAppSettings {
 }
 
 export default function SettingsPage() {
+  const { role: myRole, roleLoading } = useAuth()
+  const [managedUsers, setManagedUsers] = useState<ManagedUser[]>([])
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false)
+  const [isClaimingAdmin, setIsClaimingAdmin] = useState(false)
+  const [updatingUid, setUpdatingUid] = useState<string | null>(null)
   const [clinicData, setClinicData] = useState<ClinicSettings>({
     name: "",
     cnpj: "",
@@ -135,6 +149,17 @@ export default function SettingsPage() {
       notifyError("carregar profissionais", error)
     })
 
+    return () => {
+      unsubClinic()
+      unsubProfs()
+    }
+  }, [])
+
+  // clinic_settings/whatsapp guarda o token da Z-API — só admin tem
+  // permissão de leitura nas regras do Firestore, então só assina esse
+  // snapshot quando a role já estiver confirmada como admin.
+  useEffect(() => {
+    if (myRole !== "admin") return
     const unsubWa = onSnapshot(doc(db, "clinic_settings", "whatsapp"), (snap) => {
       if (snap.exists()) {
         setWaSettings(snap.data() as WhatsAppSettings)
@@ -142,13 +167,42 @@ export default function SettingsPage() {
     }, (error) => {
       notifyError("carregar configurações de WhatsApp", error)
     })
+    return () => unsubWa()
+  }, [myRole])
 
-    return () => {
-      unsubClinic()
-      unsubProfs()
-      unsubWa()
+  useEffect(() => {
+    if (myRole !== "admin") return
+    setIsLoadingUsers(true)
+    listUsersForAdmin()
+      .then(setManagedUsers)
+      .catch((error) => notifyError("carregar usuários", error))
+      .finally(() => setIsLoadingUsers(false))
+  }, [myRole])
+
+  const handleClaimAdmin = async () => {
+    setIsClaimingAdmin(true)
+    try {
+      await claimFirstAdmin()
+      toast({ title: "Acesso de administrador concedido" })
+    } catch (error) {
+      notifyError("solicitar acesso de administrador", error)
+    } finally {
+      setIsClaimingAdmin(false)
     }
-  }, [])
+  }
+
+  const handleChangeRole = async (uid: string, role: UserRole) => {
+    setUpdatingUid(uid)
+    try {
+      await setUserRoleApi(uid, role)
+      setManagedUsers(prev => prev.map(u => u.uid === uid ? { ...u, role } : u))
+      toast({ title: "Permissão atualizada" })
+    } catch (error) {
+      notifyError("atualizar permissão do usuário", error)
+    } finally {
+      setUpdatingUid(null)
+    }
+  }
 
   const handleSaveClinic = async () => {
     setIsSavingClinic(true)
@@ -333,10 +387,11 @@ export default function SettingsPage() {
               </div>
             </CardContent>
             <CardFooter className="bg-secondary/5 p-8 border-t flex justify-end">
-              <Button 
-                onClick={handleSaveClinic} 
+              <Button
+                onClick={handleSaveClinic}
                 className="bg-primary text-white hover:bg-primary/90 px-8 font-bold shadow-lg h-12"
-                disabled={isSavingClinic}
+                disabled={isSavingClinic || myRole !== "admin"}
+                title={myRole !== "admin" ? "Apenas administradores podem alterar as configurações da clínica" : undefined}
               >
                 {isSavingClinic ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
                 Salvar Configurações Clínicas
@@ -355,7 +410,11 @@ export default function SettingsPage() {
               </div>
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button className="bg-accent text-white hover:bg-accent/90 shadow-md font-bold h-11 px-6">
+                  <Button
+                    className="bg-accent text-white hover:bg-accent/90 shadow-md font-bold h-11 px-6"
+                    disabled={myRole !== "admin"}
+                    title={myRole !== "admin" ? "Apenas administradores podem gerenciar o corpo clínico" : undefined}
+                  >
                     <Plus className="h-4 w-4 mr-2" /> Adicionar Profissional
                   </Button>
                 </DialogTrigger>
@@ -434,11 +493,102 @@ export default function SettingsPage() {
               </Table>
             </CardContent>
           </Card>
+
+          <Card className="border-none shadow-xl bg-white overflow-hidden mt-8">
+            <CardHeader className="border-b p-8">
+              <CardTitle className="text-primary font-headline flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5" /> Permissões de Acesso
+              </CardTitle>
+              <CardDescription>
+                Controla o acesso administrativo da equipe e quem pode conceder permissões a outros usuários.
+                Diferente do Corpo Clínico acima — aqui são as contas de login do sistema, não a lista de exibição de profissionais.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-8">
+              {roleLoading ? (
+                <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+              ) : myRole !== "admin" ? (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-50 rounded-xl p-6">
+                  <div>
+                    <p className="text-sm font-bold text-slate-800">
+                      {myRole ? `Sua permissão atual: ${ROLE_LABELS[myRole]}` : "Você ainda não tem uma permissão atribuída."}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Se ainda não existe um administrador na clínica, você pode solicitar esse acesso agora.
+                    </p>
+                  </div>
+                  <Button variant="outline" onClick={handleClaimAdmin} disabled={isClaimingAdmin} className="h-11 px-6 font-bold shrink-0">
+                    {isClaimingAdmin ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
+                    Solicitar Acesso de Administrador
+                  </Button>
+                </div>
+              ) : isLoadingUsers ? (
+                <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+              ) : (
+                <Table>
+                  <TableHeader className="bg-secondary/5">
+                    <TableRow className="h-14 border-b">
+                      <TableHead className="font-bold text-primary pl-2">Usuário</TableHead>
+                      <TableHead className="font-bold text-primary">E-mail</TableHead>
+                      <TableHead className="font-bold text-primary text-right pr-2">Permissão</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {managedUsers.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center py-16 text-muted-foreground italic">
+                          Nenhuma conta encontrada.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      managedUsers.map((u) => (
+                        <TableRow key={u.uid} className="h-16 border-b">
+                          <TableCell className="font-bold text-slate-900 pl-2">{u.nome}</TableCell>
+                          <TableCell className="text-sm text-slate-600">{u.email || "—"}</TableCell>
+                          <TableCell className="text-right pr-2">
+                            <Select
+                              value={u.role ?? undefined}
+                              onValueChange={(value) => handleChangeRole(u.uid, value as UserRole)}
+                              disabled={updatingUid === u.uid}
+                            >
+                              <SelectTrigger className="w-48 ml-auto h-9">
+                                <SelectValue placeholder="Sem permissão" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {(Object.keys(ROLE_LABELS) as UserRole[]).map((r) => (
+                                  <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* ── WhatsApp ──────────────────────────────────────────── */}
         <TabsContent value="whatsapp" className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
-
+          {myRole !== "admin" ? (
+            <Card className="border-none shadow-md bg-white">
+              <CardContent className="p-8 flex items-center gap-4">
+                <div className="bg-slate-100 p-3 rounded-xl text-slate-400">
+                  <ShieldCheck className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-800">Acesso restrito a administradores</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    As credenciais de WhatsApp são um dado sensível da clínica. Peça a um administrador para configurá-las ou para conceder essa permissão à sua conta em Equipe → Permissões de Acesso.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+          <>
           <Card className="border-none shadow-md bg-white overflow-hidden">
             <CardHeader className="bg-primary/5 border-b">
               <CardTitle className="text-primary font-headline flex items-center gap-2">
@@ -576,13 +726,14 @@ export default function SettingsPage() {
               <ol className="text-sm text-amber-900 space-y-1.5 list-decimal list-inside">
                 <li>Acesse app.z-api.io e crie uma instância</li>
                 <li>Copie o Instance ID e Token acima e salve</li>
-                <li>No painel Z-API, clique em "Conectar" e escaneie o QR code com o WhatsApp da clínica</li>
+                <li>No painel Z-API, clique em &quot;Conectar&quot; e escaneie o QR code com o WhatsApp da clínica</li>
                 <li>Use o número dedicado da clínica — nunca o celular pessoal</li>
-                <li>Clique em "Enviar Teste" para confirmar a conexão</li>
+                <li>Clique em &quot;Enviar Teste&quot; para confirmar a conexão</li>
               </ol>
             </CardContent>
           </Card>
-
+          </>
+          )}
         </TabsContent>
       </Tabs>
     </div>

@@ -31,28 +31,59 @@ service cloud.firestore {
     }
 
     // ── Perfil do usuário ────────────────────────────────────────
-    // Cada usuário só acessa o próprio documento. `role` nunca pode ser
-    // definido pelo cliente — evita autopromoção (ex: para "admin") antes
-    // de existir um mecanismo server-side de atribuição de roles.
+    // Cada usuário só acessa o próprio documento. `role` só é atribuído
+    // server-side (Cloud Functions com Admin SDK, que ignora estas regras) —
+    // o cliente nunca pode criar, alterar OU remover esse campo.
+    //
+    // NOTA: comparar por igualdade (não por presença da chave) é proposital.
+    // `request.resource.data` reflete o documento resultante inteiro numa
+    // atualização, então checar apenas `!("role" in request.resource.data)`
+    // (a) bloquearia qualquer escrita futura não relacionada assim que uma
+    // role existisse (o campo antigo sempre "reaparece" no resultado) e (b)
+    // permitiria o próprio cliente apagar sua role com
+    // `updateDoc(..., { role: deleteField() })`, já que a chave deixa de
+    // existir no resultado — driblando a proteção de "último admin" que só
+    // existe dentro da Cloud Function setUserRole. Exigir que a role
+    // resultante seja igual à role atual (presente ou ausente) impede as
+    // duas coisas.
+    function roleUnchanged() {
+      return request.resource.data.get('role', null) == resource.data.get('role', null);
+    }
+
     match /users/{userId} {
       allow read: if isAuthenticated() && request.auth.uid == userId;
-      allow write: if isAuthenticated() && request.auth.uid == userId
+      allow create: if isAuthenticated() && request.auth.uid == userId
         && !("role" in request.resource.data);
+      allow update: if isAuthenticated() && request.auth.uid == userId && roleUnchanged();
+      // Sem delete: o documento carrega o campo role usado para contagem de
+      // admins (setUserRole) e para auditoria. Apagar o próprio perfil não
+      // deve ser um caminho para sair dessa contabilização.
+      allow delete: if false;
     }
 
     // ── Configurações da clínica ─────────────────────────────────
-    // Leitura e escrita para qualquer usuário autenticado
+    // clinic_settings/whatsapp guarda o token da API Z-API — segredo real,
+    // não dado de exibição. Um único match com condição por docId (em vez de
+    // dois match blocks para o mesmo caminho) porque no Firestore, quando
+    // mais de um match block cobre o mesmo documento, o acesso é liberado se
+    // QUALQUER UM permitir (união/OR) — um bloco "admin-only" para
+    // "whatsapp" ao lado de um bloco geral "isAuthenticated()" para
+    // "{docId}" NÃO restringiria nada, já que o segundo também bateria e
+    // seria OR'd com o primeiro.
     match /clinic_settings/{docId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read: if docId == "whatsapp" ? hasRole("admin") : isAuthenticated();
+      allow write: if hasRole("admin");
     }
 
     // ── Profissionais ────────────────────────────────────────────
-    // Leitura para todos autenticados; escrita pelo próprio profissional
+    // Cadastro institucional da clínica (não são contas de login — ver
+    // /users para isso). Leitura para todos autenticados; escrita restrita a
+    // admin. NOTA: os documentos usam ID auto-gerado (addDoc), então uma
+    // checagem "request.auth.uid == docId" nunca seria verdadeira — por
+    // isso a gestão é centralizada em admin em vez de tentar simular dono.
     match /professionals/{docId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated() && request.auth.uid == docId;
+      allow create, update, delete: if hasRole("admin");
     }
 
     // ── Pacientes ────────────────────────────────────────────────
@@ -154,12 +185,21 @@ service cloud.firestore {
     }
 
     // ── Log de Auditoria (LGPD) ──────────────────────────────────
-    // Apenas criação permitida; ninguém pode apagar ou alterar logs
+    // Apenas criação permitida; ninguém pode apagar ou alterar logs.
+    // Leitura: o próprio autor vê sua trilha, admin vê a trilha completa
+    // (a página /privacy existe para monitoramento de conformidade da
+    // clínica como um todo, não só da própria atividade).
     match /audit_logs/{docId} {
       allow read: if isAuthenticated()
         && (resource.data.userId == request.auth.uid
-            || resource.data.professionalId == request.auth.uid);
-      allow create: if isAuthenticated();
+            || resource.data.professionalId == request.auth.uid
+            || hasRole("admin"));
+      // userId precisa ser o autor real da requisição — sem isso, qualquer
+      // autenticado poderia forjar uma entrada atribuindo uma ação a outro
+      // usuário, quebrando a garantia de não-repúdio que esse log existe
+      // para sustentar.
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
       allow update, delete: if false; // Logs são permanentes e imutáveis
     }
 
